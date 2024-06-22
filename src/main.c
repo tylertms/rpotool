@@ -117,11 +117,11 @@ int main(int argc, char **argv)
 
 void print_help(char *exec)
 {
-    printf("\nA command-line tool to fetch and convert Egg, Inc. RPO & RPOZ files to OBJ files.\n\n");
+    printf("Command-line tool to fetch and convert Egg, Inc. .rpo(z) files to the .obj format.\n\n");
     printf("Usage:\n");
-    printf("  %s [command]\n\n", exec);
+    printf("  %s [command] [options]\n\n", exec);
     printf("Available Commands:\n");
-    printf("  convert    Convert an RPO(Z) file to an OBJ file\n");
+    printf("  convert    Convert .rpo(z) file to .obj format\n");
     printf("  fetch      Browse and convert shells interactively\n\n");
     printf("Flags:\n");
     printf("  -h, --help      Display the help message for a command\n");
@@ -130,9 +130,9 @@ void print_help(char *exec)
 
 void print_convert_help(char *exec)
 {
-    printf("\nConvert an Egg, Inc. RPO(Z) file to the OBJ format.\n\n");
+    printf("\nConvert an Egg, Inc. .rpo(z) file to the .obj format.\n\n");
     printf("Usage:\n");
-    printf("  %s convert [flags]\n\n", exec);
+    printf("  %s convert <file.rpo(z)> [flags]\n\n", exec);
     printf("Flags:\n");
     printf("  -o, --output    Specify the name of the output file\n");
     printf("  -h, --help      Display this help message\n");
@@ -141,7 +141,7 @@ void print_convert_help(char *exec)
 
 void print_fetch_help(char *exec)
 {
-    printf("\nInteractively browse and download available RPOZ shells as OBJ files.\n\n");
+    printf("\nInteractively browse and download available .rpoz shells as .obj files.\n\n");
     printf("Usage:\n");
     printf("  %s fetch [flags]\n\n", exec);
     printf("Flags:\n");

@@ -8,7 +8,7 @@
   - [Overview](#overview)
   - [Commands](#commands)
 - [Compiling](#compiling)
-- [Blender Import](#blender-import)
+- [Importing to Blender](#importing-to-blender)
 - [Installing libcurl](#installing-libcurl)
 - [License](#license)
 
@@ -85,7 +85,7 @@ $ cd rpotool
 $ gcc -o rpotool src/*.c -lz -lcurl
 ```
 
-## Blender Import
+## Importing to Blender
 
 By default, Blender does not recognize the vertex colors/textures in the converted .obj files.
 

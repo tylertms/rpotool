@@ -29,19 +29,25 @@ jobs:
       run: |
         sudo apt-get install libcurl4-gnutls-dev
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        zip ${{ env.OUTPUT_NAME }}-linux-x64.zip ${{ env.OUTPUT_NAME }} README.md
+        mkdir output
+        mv ${{ env.OUTPUT_NAME }} output/
+        mv README.md output/
 
     - name: Compile with gcc on macOS ARM64
       if: matrix.os == 'macos-latest'
       run: |
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        zip ${{ env.OUTPUT_NAME }}-macos-arm64.zip ${{ env.OUTPUT_NAME }} README.md
+        mkdir output
+        mv ${{ env.OUTPUT_NAME }} output/
+        mv README.md output/
 
     - name: Compile with gcc on macOS x64
       if: matrix.os == 'macos-13'
       run: |
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        zip ${{ env.OUTPUT_NAME }}-macos-x64.zip ${{ env.OUTPUT_NAME }} README.md
+        mkdir output
+        mv ${{ env.OUTPUT_NAME }} output/
+        mv README.md output/
 
     - name: Compile with gcc on Windows
       if: matrix.os == 'windows-latest'
@@ -49,32 +55,35 @@ jobs:
         curl -L ${{ env.CURL_URL }} -o curl.zip
         powershell Expand-Archive curl.zip -DestinationPath C:\
         gcc -o ${{ env.OUTPUT_NAME }}.exe ${{ env.FILE_PATH }} -I${{ env.CURL_PATH }}\include -L${{ env.CURL_PATH }}\lib -lcurl -lz
-        powershell Compress-Archive ${{ env.OUTPUT_NAME }}.exe, ${{ env.CURL_PATH }}\bin\libcurl-x64.dll, README.md ${{ env.OUTPUT_NAME }}-win-x64.zip
+        mkdir output
+        move ${{ env.OUTPUT_NAME }}.exe output/
+        move README.md output/
+        move ${{ env.CURL_PATH }}\bin\libcurl-x64.dll output/
 
     - name: Upload artifact on Linux
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-linux-x64
-        path: ./${{ env.OUTPUT_NAME }}-linux-x64.zip
+        path: ./output
 
     - name: Upload artifact on macOS x86_64
       if: matrix.os == 'macos-13'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-macos-x64
-        path: ./${{ env.OUTPUT_NAME }}-macos-x64.zip
+        path: ./output
 
     - name: Upload artifact on macOS ARM64
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-macos-arm64
-        path: ./${{ env.OUTPUT_NAME }}-macos-arm64.zip
+        path: ./output
 
     - name: Upload artifact on Windows
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-win-x64
-        path: ./${{ env.OUTPUT_NAME }}-win-x64.zip
+        path: ./output

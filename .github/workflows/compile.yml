@@ -30,6 +30,7 @@ jobs:
       run: |
         sudo apt-get install libcurl4-gnutls-dev
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        chmod +x ${{ env.OUTPUT_NAME }}
         mkdir output
         mv ${{ env.OUTPUT_NAME }} output/
         mv README.md output/
@@ -38,6 +39,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        chmod +x ${{ env.OUTPUT_NAME }}
         mkdir output
         mv ${{ env.OUTPUT_NAME }} output/
         mv README.md output/
@@ -46,6 +48,7 @@ jobs:
       if: matrix.os == 'macos-13'
       run: |
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        chmod +x ${{ env.OUTPUT_NAME }}
         mkdir output
         mv ${{ env.OUTPUT_NAME }} output/
         mv README.md output/

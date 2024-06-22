@@ -5,20 +5,40 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+  - [Overview](#overview)
+  - [Commands](#commands)
 - [Compiling](#compiling)
 - [Blender Import](#blender-import)
+- [Installing libcurl](#installing-libcurl)
 - [License](#license)
 
 ## Installation
 
-Get the latest version of `rpotool` from [GitHub releases](https://github.com/tylertms/rpotool/releases).
+1. Get the latest version of `rpotool` for your system from [GitHub releases](https://github.com/tylertms/rpotool/releases).
+
+2. Extract the `.zip` archive and `cd` into the folder.
+
+3. If you are missing `libcurl` when using `rpotool fetch`, follow the instructions in [Installing libcurl](#installing-libcurl).
+
+
+## Usage
+
+### Overview
+macOS/Linux:
+```
+./rpotool [command] [options]
+```
+
+Windows:
+```
+rpotool.exe [command] [options]
+```
 
 To obtain the default `.rpo` assets, unzip a `.apk` or `.ipa` game file and open the `/rpos` directory.
 
 To obtain `.rpoz` shell assets, see the `fetch` command below.
 
-## Usage
-
+### Commands
 To convert an .rpo or .rpoz file, use the `convert` command.
 
 ```
@@ -77,6 +97,28 @@ After importing your .obj file into blender, complete the following:
 3. Connect the `Color` node of `Color Attribute` to the `Base Color` node of the material
 
 ![step_3](./demo/blender/step3.png)
+
+## Installing libcurl
+
+Most systems come preinstalled with libcurl dynamic libraries.
+
+However, if you face errors related to missing libcurl, try installing the corresponding library for your system.
+
+macOS:
+```
+brew install curl
+```
+
+Linux:
+```
+sudo apt-get install libcurl4-gnutls-dev
+```
+
+Windows:
+```
+The Windows release comes packaged with libcurl-x64.dll.
+Either keep libcurl-x64.dll in the same directory as rpotool.exe, or move it to C:\Windows\System32.
+```
 
 ## License
 

@@ -5,6 +5,8 @@ on: [push, pull_request]
 env:
   FILE_PATH: src/*.c
   OUTPUT_NAME: rpotool
+  CURL_URL: https://curl.se/windows/dl-8.8.0_2/curl-8.8.0_2-win64-mingw.zip
+  CURL_PATH: C:\curl-8.8.0_2-win64-mingw
 
 jobs:
   compile:
@@ -16,7 +18,7 @@ jobs:
           - ubuntu-latest
           - macos-13
           - macos-latest
-        #  - windows-latest
+          - windows-latest
 
     steps:
     - name: Checkout repository
@@ -27,25 +29,27 @@ jobs:
       run: |
         sudo apt-get install libcurl4-gnutls-dev
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        zip ${{ env.OUTPUT_NAME }}-linux-x64.zip ./${{ env.OUTPUT_NAME }}
+        zip ${{ env.OUTPUT_NAME }}-linux-x64.zip ${{ env.OUTPUT_NAME }} README.md
 
     - name: Compile with gcc on macOS ARM64
       if: matrix.os == 'macos-latest'
       run: |
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        zip ${{ env.OUTPUT_NAME }}-macos-arm64.zip ./${{ env.OUTPUT_NAME }}
+        zip ${{ env.OUTPUT_NAME }}-macos-arm64.zip ${{ env.OUTPUT_NAME }} README.md
 
     - name: Compile with gcc on macOS x64
       if: matrix.os == 'macos-13'
       run: |
         gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        zip ${{ env.OUTPUT_NAME }}-macos-x64.zip ./${{ env.OUTPUT_NAME }}
+        zip ${{ env.OUTPUT_NAME }}-macos-x64.zip ${{ env.OUTPUT_NAME }} README.md
 
     - name: Compile with gcc on Windows
       if: matrix.os == 'windows-latest'
       run: |
-        gcc -o ${{ env.OUTPUT_NAME }}.exe ${{ env.FILE_PATH }} -lz -lwinhttp
-        powershell Compress-Archive ${{ env.OUTPUT_NAME }}.exe ${{ env.OUTPUT_NAME }}-win-x64.zip
+        curl -L ${{ env.CURL_URL }} -o curl.zip
+        powershell Expand-Archive curl.zip -DestinationPath C:\
+        gcc -o ${{ env.OUTPUT_NAME }}.exe ${{ env.FILE_PATH }} -I${{ env.CURL_PATH }}\include -L${{ env.CURL_PATH }}\lib -lcurl -lz
+        powershell Compress-Archive ${{ env.OUTPUT_NAME }}.exe, ${{ env.CURL_PATH }}\bin\libcurl-x64.dll, README.md ${{ env.OUTPUT_NAME }}-win-x64.zip
 
     - name: Upload artifact on Linux
       if: matrix.os == 'ubuntu-latest'

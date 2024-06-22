@@ -14,12 +14,17 @@
 
 ## Installation
 
-1. Get the latest version of `rpotool` for your system from [GitHub releases](https://github.com/tylertms/rpotool/releases).
+1. Download the latest version of `rpotool` for your system from [GitHub releases](https://github.com/tylertms/rpotool/releases).
 
 2. Extract the `.zip` archive and `cd` into the folder.
 
-3. If you are missing `libcurl` when using `rpotool fetch`, follow the instructions in [Installing libcurl](#installing-libcurl).
+3. On macOS/Linux:
+```
+chmod +x rpotool
+```
 
+4. If you are missing `libcurl` when using `rpotool fetch`, follow the instructions in [Installing libcurl](#installing-libcurl).
+  
 
 ## Usage
 

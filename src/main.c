@@ -117,11 +117,11 @@ int main(int argc, char **argv)
 
 void print_help(char *exec)
 {
-    printf("Command-line tool to fetch and convert Egg, Inc. .rpo(z) files to the .obj format.\n\n");
+    printf("Command-line tool to fetch and convert Egg, Inc. .rpo and .rpoz files to .obj files.\n\n");
     printf("Usage:\n");
     printf("  %s [command] [options]\n\n", exec);
     printf("Available Commands:\n");
-    printf("  convert    Convert .rpo(z) file to .obj format\n");
+    printf("  convert    Convert an .rpo(z) file to an .obj file\n");
     printf("  fetch      Browse and convert shells interactively\n\n");
     printf("Flags:\n");
     printf("  -h, --help      Display the help message for a command\n");

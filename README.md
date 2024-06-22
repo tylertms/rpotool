@@ -6,12 +6,16 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Compiling](#compiling)
+- [Blender Import](#blender-import)
 - [License](#license)
-
 
 ## Installation
 
 Get the latest version of `rpotool` from [GitHub releases](https://github.com/tylertms/rpotool/releases).
+
+To obtain the default `.rpo` assets, unzip a `.apk` or `.ipa` game file and open the `/rpos` directory.
+
+To obtain `.rpoz` shell assets, see the `fetch` command below.
 
 ## Usage
 
@@ -28,10 +32,12 @@ Flags:
   -h, --help      Display this help message
 ```
 
+![convert_demo](./demo/rpotool_convert_demo.gif)
+
 To browse shell .rpoz files, use the `fetch` command.
 
 ```
-Interactively browse and download available RPOZ shells as OBJ files.
+Interactively browse and download available .rpoz shells as .obj files.
 
 Usage:
   ./rpotool fetch [flags]
@@ -40,23 +46,37 @@ Flags:
   -h, --help      Display this help message
 ```
 
-`fetch` allows you to filter shells, as well as download and convert in bulk.
+![fetch_demo](./demo/rpotool_fetch_demo.gif)
 
 ## Compiling
-
-### Requirements
 
 `libcurl` and `zlib` installed on your system.
 
 A compiler, such as `gcc` or `clang`
-
-### Building
 
 ```shell
 $ git clone https://github.com/tylertms/rpotool.git
 $ cd rpotool
 $ gcc -o rpotool src/*.c -lz -lcurl
 ```
+
+## Blender Import
+
+By default, Blender does not recognize the vertex colors/textures in the converted .obj files.
+
+After importing your .obj file into blender, complete the following:
+
+1. Open the shading tab and select `+ New` to create a new material
+
+![step_1](./demo/blender/step1.png)
+
+2. Select `Add > Input > Color Attribute`
+
+![step_2](./demo/blender/step2.png)
+
+3. Connect the `Color` node of `Color Attribute` to the `Base Color` node of the material
+
+![step_3](./demo/blender/step3.png)
 
 ## License
 

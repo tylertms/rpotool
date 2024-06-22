@@ -8,8 +8,8 @@
 #include "convert.h"
 #include "fetch.h"
 
-#define CONFIG_URL "http://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/"
-#define SHELLS_URL "http://auxbrain.com/dlc/shells/"
+#define CONFIG_URL "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/"
+#define SHELLS_URL "https://auxbrain.com/dlc/shells/"
 
 set sets[MAX_SETS];
 set decorators[MAX_SETS];
@@ -49,6 +49,7 @@ struct curl_mem *fetch(const char *url) {
     curl_handle = curl_easy_init();
 
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+    curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)chunk);
     curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");

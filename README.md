@@ -1,7 +1,7 @@
 # rpotool
 
 [![Release](https://img.shields.io/github/release/tylertms/rpotool.svg?label=Release)](https://GitHub.com/tylertms/rpotool/releases/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/majd/ipatool/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tylertms/rpotool/blob/main/LICENSE)
 
 - [Installation](#installation)
 - [Usage](#usage)

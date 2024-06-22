@@ -1,0 +1,76 @@
+name: compile
+
+on: [push, pull_request]
+
+env:
+  FILE_PATH: src/*.c
+  OUTPUT_NAME: rpotool
+
+jobs:
+  compile:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-13
+          - macos-latest
+        #  - windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Compile with gcc on Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get install libcurl4-gnutls-dev
+        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        zip ${{ env.OUTPUT_NAME }}-linux-x64.zip ./${{ env.OUTPUT_NAME }}
+
+    - name: Compile with gcc on macOS ARM64
+      if: matrix.os == 'macos-latest'
+      run: |
+        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        zip ${{ env.OUTPUT_NAME }}-macos-arm64.zip ./${{ env.OUTPUT_NAME }}
+
+    - name: Compile with gcc on macOS x64
+      if: matrix.os == 'macos-13'
+      run: |
+        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        zip ${{ env.OUTPUT_NAME }}-macos-x64.zip ./${{ env.OUTPUT_NAME }}
+
+    - name: Compile with gcc on Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        gcc -o ${{ env.OUTPUT_NAME }}.exe ${{ env.FILE_PATH }} -lz -lwinhttp
+        powershell Compress-Archive ${{ env.OUTPUT_NAME }}.exe ${{ env.OUTPUT_NAME }}-win-x64.zip
+
+    - name: Upload artifact on Linux
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.OUTPUT_NAME }}-linux-x64
+        path: ./${{ env.OUTPUT_NAME }}-linux-x64.zip
+
+    - name: Upload artifact on macOS x86_64
+      if: matrix.os == 'macos-13'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.OUTPUT_NAME }}-macos-x64
+        path: ./${{ env.OUTPUT_NAME }}-macos-x64.zip
+
+    - name: Upload artifact on macOS ARM64
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.OUTPUT_NAME }}-macos-arm64
+        path: ./${{ env.OUTPUT_NAME }}-macos-arm64.zip
+
+    - name: Upload artifact on Windows
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.OUTPUT_NAME }}-win-x64
+        path: ./${{ env.OUTPUT_NAME }}-win-x64.zip

@@ -18,10 +18,10 @@ Get the latest version of `rpotool` from [GitHub releases](https://github.com/ty
 To convert an .rpo or .rpoz file, use the `convert` command.
 
 ```
-Convert an Egg, Inc. RPO(Z) file to the OBJ format.
+Convert an Egg, Inc. .rpo(z) file to the .obj format.
 
 Usage:
-  ./rpotool convert [flags]
+  ./rpotool convert <file.rpo(z)> [flags]
 
 Flags:
   -o, --output    Specify the name of the output file

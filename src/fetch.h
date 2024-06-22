@@ -2,13 +2,9 @@
 #define FETCH_H
 
 #ifdef _WIN32
-#include <windows.h>
-#include <winhttp.h>
-#include <direct.h> 
-#define mkdir(path, mode) _mkdir(path)
+#define mkdir(path, mode) mkdir(path)
 #define clear() system("cls")
 #else
-#include <curl/curl.h>
 #define clear() system("tput reset")
 #endif
 

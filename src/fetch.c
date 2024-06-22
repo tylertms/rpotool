@@ -8,8 +8,8 @@
 #include "convert.h"
 #include "fetch.h"
 
-#define CONFIG_URL "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/"
-#define SHELLS_URL "https://auxbrain.com/dlc/shells/"
+#define CONFIG_URL "http://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/"
+#define SHELLS_URL "http://auxbrain.com/dlc/shells/"
 
 set sets[MAX_SETS];
 set decorators[MAX_SETS];

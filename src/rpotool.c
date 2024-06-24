@@ -510,11 +510,17 @@ int search_config(char *searchValue, char *outputPath)
         return 1;
     }
 
-    if (outputPath != NULL && determine_file_type(outputPath) != 1)
+    if (outputPath != NULL)
     {
-        fprintf(stderr, "error: %s must be a valid directory\n", outputPath);
-        free(config);
-        return 1;
+        if (determine_file_type(outputPath) != 1)
+        {
+            if (mkdir(outputPath, 0777) == -1)
+            {
+                fprintf(stderr, "error: %s must be a valid directory\n", outputPath);
+                free(config);
+                return 1;
+            }
+        }
     }
 
     for (int i = 0; i < strlen(searchValue); i++)

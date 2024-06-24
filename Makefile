@@ -1,16 +1,21 @@
 CFLAGS = -O2 -lz -I"./src/lib" -Wall -pedantic
 
 ifeq ($(OS),Windows_NT)
+	CFLAGS += -o rpotool.exe
 	LDFLAGS = -lwinhttp
 else
+	CFLAGS += -o rpotool
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Darwin)
 		LDFLAGS = -framework Foundation
 		CFLAGS += -Wno-gnu-zero-variadic-macro-arguments
 	else ifeq ($(UNAME_S),Linux)
+		packages:
+			sudo apt-get install libcurl4-gnutls-dev
+		.PHONY: packages
 		LDFLAGS = -lcurl -lpthread
 	endif
 endif
 
 rpotool: src/*.c src/lib/*.c
-	gcc $^ -o $@ $(CFLAGS) $(LDFLAGS)
+	gcc $^ $(CFLAGS) $(LDFLAGS)

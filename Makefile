@@ -1,4 +1,4 @@
-CFLAGS = -O2 -lz -I"./src/lib" -Wall -pedantic -fsanitize=address -g
+CFLAGS = -O2 -lz -I"./src/lib" -Wall -pedantic
 
 ifeq ($(OS),Windows_NT)
 	LDFLAGS = -lwinhttp

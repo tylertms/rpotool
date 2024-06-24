@@ -95,7 +95,7 @@ int process_path(char *path, char *outputPath)
             return 1;
         }
 
-        if (outputPath && strcmp(outputPath + strlen(outputPath) - 4, ".obj") != 0)
+        if (outputPath != NULL)
         {
             char *newOutputPath = (char *)malloc(strlen(outputPath) + 5);
             if (!newOutputPath)
@@ -104,10 +104,13 @@ int process_path(char *path, char *outputPath)
                 return 1;
             }
             strcpy(newOutputPath, outputPath);
-            strcat(newOutputPath, ".obj");
+            if (strrchr(newOutputPath, '.obj') == NULL)
+                strcat(newOutputPath, ".obj");
+            
 
-            int status = process_rpo_file(path, newOutputPath);
-            free(newOutputPath);
+            outputPath = newOutputPath;
+
+            int status = process_rpo_file(path, outputPath);
             return status;
         }
 
@@ -231,6 +234,7 @@ int process_rpo_file(char *filepath, char *outputPath)
 
     if (read_file(filepath, &rpo, &rpoLen) != 0)
     {
+        fprintf(stderr, "error: failed to read file: %s\n", filepath);
         free(rpo);
         return 1;
     }
@@ -310,7 +314,12 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
         fclose(objFile);
         return 1;
     }
-    strcpy(rpoPath, strrchr(objPath, '/') + 1);
+
+    if (strrchr(objPath, '/') == NULL)
+        strcpy(rpoPath, objPath);
+    else
+        strcpy(rpoPath, strrchr(objPath, '/') + 1);
+
     strtok(rpoPath, ".");
     strcat(rpoPath, ".rpo");
     if (fromCompressed)
@@ -369,7 +378,11 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
 
     fclose(objFile);
     strtok(objPath, ".");
-    printf("info: created %s.obj from .rpo(z)\n", strchr(objPath, '/') + 1);
+    if (strchr(objPath, '/') == NULL)
+       printf("info: created %s.obj from .rpo(z)\n", objPath);
+    else
+        printf("info: created %s.obj from .rpo(z)\n", strchr(objPath, '/') + 1);
+    
 
     return 0;
 }

@@ -22,17 +22,21 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Install dependencies Ubuntu
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get install libcurl4-gnutls-dev
+
+
     - name: Compile and package
       run: |
         make
-
         mkdir output
 
-        if [ "${{ matrix.os }}" != "windows-latest" ]; then
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          mv ${{ env.OUTPUT_NAME }}.exe output/
+        else
           chmod +x ${{ env.OUTPUT_NAME }}
           mv ${{ env.OUTPUT_NAME }} output/
-        else
-          mv ${{ env.OUTPUT_NAME }}.exe output/
         fi
 
         mv README.md output/

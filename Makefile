@@ -10,9 +10,6 @@ else
 		LDFLAGS = -framework Foundation
 		CFLAGS += -Wno-gnu-zero-variadic-macro-arguments
 	else ifeq ($(UNAME_S),Linux)
-		packages:
-			sudo apt-get install libcurl4-gnutls-dev
-		.PHONY: packages
 		LDFLAGS = -lcurl -lpthread
 	endif
 endif

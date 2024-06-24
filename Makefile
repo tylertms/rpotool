@@ -10,7 +10,7 @@ else
 		LDFLAGS = -framework Foundation
 		CFLAGS += -Wno-gnu-zero-variadic-macro-arguments
 	else ifeq ($(UNAME_S),Linux)
-		LDFLAGS = -lcurl -lpthread
+		LDFLAGS = -lcurl -lpthread -lm
 	endif
 endif
 

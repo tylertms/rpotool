@@ -3,11 +3,8 @@ name: compile
 on: [push, pull_request]
 
 env:
-  VERSION: 1.0.1
-  FILE_PATH: src/*.c
+  VERSION: 1.0.2
   OUTPUT_NAME: rpotool
-  CURL_URL: https://curl.se/windows/dl-8.8.0_2/curl-8.8.0_2-win64-mingw.zip
-  CURL_PATH: C:\curl-8.8.0_2-win64-mingw
 
 jobs:
   compile:
@@ -25,67 +22,49 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Compile with gcc on Linux
+    - name: Install dependencies Ubuntu
       if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get install libcurl4-gnutls-dev
-        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        chmod +x ${{ env.OUTPUT_NAME }}
-        mkdir output
-        mv ${{ env.OUTPUT_NAME }} output/
-        mv README.md output/
+      run: sudo apt-get install libcurl4-gnutls-dev
 
-    - name: Compile with gcc on macOS ARM64
-      if: matrix.os == 'macos-latest'
-      run: |
-        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        chmod +x ${{ env.OUTPUT_NAME }}
-        mkdir output
-        mv ${{ env.OUTPUT_NAME }} output/
-        mv README.md output/
-
-    - name: Compile with gcc on macOS x64
-      if: matrix.os == 'macos-13'
-      run: |
-        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
-        chmod +x ${{ env.OUTPUT_NAME }}
-        mkdir output
-        mv ${{ env.OUTPUT_NAME }} output/
-        mv README.md output/
-
-    - name: Compile with gcc on Windows
+    - name: Compile and package for Windows
       if: matrix.os == 'windows-latest'
       run: |
-        curl -L ${{ env.CURL_URL }} -o curl.zip
-        powershell Expand-Archive curl.zip -DestinationPath C:\
-        gcc -o ${{ env.OUTPUT_NAME }}.exe ${{ env.FILE_PATH }} -I${{ env.CURL_PATH }}\include -L${{ env.CURL_PATH }}\lib -lcurl -lz
+        make
         mkdir output
-        move ${{ env.OUTPUT_NAME }}.exe output/
-        move README.md output/
-        move ${{ env.CURL_PATH }}\bin\libcurl-x64.dll output/
+        mv ${{ env.OUTPUT_NAME }}.exe output/
+        mv README.md output/
 
-    - name: Upload artifact on Linux
+    - name: Compile and package for macOS and Linux
+      if: matrix.os != 'windows-latest'
+      run: |
+        make
+        mkdir output
+        chmod +x ${{ env.OUTPUT_NAME }}
+        mv ${{ env.OUTPUT_NAME }} output/
+        mv README.md output/
+
+    - name: Upload artifact Ubuntu
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-${{ env.VERSION }}-linux-x64
         path: ./output
 
-    - name: Upload artifact on macOS x86_64
+    - name: Upload artifact macOS x64
       if: matrix.os == 'macos-13'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-${{ env.VERSION }}-macos-x64
         path: ./output
 
-    - name: Upload artifact on macOS ARM64
+    - name: Upload artifact macOS ARM64
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT_NAME }}-${{ env.VERSION }}-macos-arm64
         path: ./output
 
-    - name: Upload artifact on Windows
+    - name: Upload artifact Windows
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:

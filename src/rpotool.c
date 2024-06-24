@@ -18,6 +18,10 @@
 #define CONFIG_URL "https://gist.github.com/tylertms/197ea8c6f9d63b027def62f0091782c4/raw/"
 #define DLC_URL "https://auxbrain.com/dlc/shells/"
 
+#ifdef _WIN32
+#define mkdir(path, mode) mkdir(path)
+#endif
+
 int process_path(char *path, char *outputPath);
 int read_file(char *filename, unsigned char **data, size_t *len);
 int process_rpo_file(char *filepath, char *outputPath);

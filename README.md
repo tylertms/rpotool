@@ -5,12 +5,11 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Overview](#overview)
-  - [Commands](#commands)
-- [Compiling](#compiling)
 - [Importing to Blender](#importing-to-blender)
-- [Installing libcurl](#installing-libcurl)
+- [Compiling](#compiling)
 - [License](#license)
+
+Note: All assets and converted files are property of Auxbrain Inc. and should be used accordingly.
 
 ## Installation
 
@@ -23,67 +22,37 @@
 chmod +x rpotool
 ```
 
-4. If you are missing `libcurl` when using `rpotool fetch`, follow the instructions in [Installing libcurl](#installing-libcurl).
-  
-
-## Usage
-
-### Overview
-macOS/Linux:
-```
-./rpotool [command] [options]
-```
-
-Windows:
-```
-rpotool.exe [command] [options]
-```
-
 To obtain the default `.rpo` assets, unzip a `.apk` or `.ipa` game file and open the `/rpos` directory.
 
-To obtain `.rpoz` shell assets, see the `fetch` command below.
+To obtain `.rpoz` shell assets, see the `search` command below.
 
-### Commands
-To convert an .rpo or .rpoz file, use the `convert` command.
-
+## Usage
 ```
-Convert an Egg, Inc. .rpo(z) file to the .obj format.
+Usage: ./rpotool <folder or file.rpo(z)> [options]
+Options:
+  -s, --search <term>       Search for shells and download as .obj 
+  -o, --output <path>       Output file or folder for the converted file(s)
+```
 
-Usage:
-  ./rpotool convert <file.rpo(z)> [flags]
+On Windows, you can simply drag a .rpo file onto the .exe to convert it.
 
-Flags:
-  -o, --output    Specify the name of the output file
-  -h, --help      Display this help message
+### Examples:
+
+Convert `coop.rpo` to `coop.obj`.
+```
+./rpotool coop.obj
+```
+
+Convert the folder `rpos` to a new folder `objs`, using the `-o`/`--output` flag.
+```
+./rpotool rpos/ -o objs/
 ```
 
 ![convert_demo](./demo/rpotool_convert_demo.gif)
 
-To browse shell .rpoz files, use the `fetch` command.
+To browse, download, and convert shell files, use the `-s`/`--search` flag.
 
-```
-Interactively browse and download available .rpoz shells as .obj files.
-
-Usage:
-  ./rpotool fetch [flags]
-
-Flags:
-  -h, --help      Display this help message
-```
-
-![fetch_demo](./demo/rpotool_fetch_demo.gif)
-
-## Compiling
-
-`libcurl` and `zlib` installed on your system.
-
-A compiler, such as `gcc` or `clang`
-
-```shell
-$ git clone https://github.com/tylertms/rpotool.git
-$ cd rpotool
-$ gcc -o rpotool src/*.c -lz -lcurl
-```
+![search_demo](./demo/rpotool_search_demo.gif)
 
 ## Importing to Blender
 
@@ -103,27 +72,16 @@ After importing your .obj file into blender, complete the following:
 
 ![step_3](./demo/blender/step3.png)
 
-## Installing libcurl
+## Compiling
 
-Most systems come preinstalled with libcurl dynamic libraries.
+You must have `gcc` installed and on your path.
 
-However, if you face errors related to missing libcurl, try installing the corresponding library for your system.
-
-macOS:
-```
-brew install curl
-```
-
-Linux:
-```
-sudo apt-get install libcurl4-gnutls-dev
+```shell
+$ git clone https://github.com/tylertms/rpotool.git
+$ cd rpotool
+$ make
 ```
 
-Windows:
-```
-The Windows release comes packaged with libcurl-x64.dll.
-Either keep libcurl-x64.dll in the same directory as rpotool.exe, or move it to C:\Windows\System32.
-```
 
 ## License
 

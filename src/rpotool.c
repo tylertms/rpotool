@@ -18,15 +18,20 @@
 #define CONFIG_URL "https://gist.github.com/tylertms/197ea8c6f9d63b027def62f0091782c4/raw/"
 #define DLC_URL "https://auxbrain.com/dlc/shells/"
 
+int process_path(char *path, char *outputPath);
+int read_file(char *filename, unsigned char **data, size_t *len);
+int process_rpo_file(char *filepath, char *outputPath);
+int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath);
+
 int request(char *URL, char *method, unsigned char **data, size_t *len);
 int decompress(unsigned char *source, size_t sourceLen, unsigned char **dest, size_t *destLen);
-int determine_file_type(char *filename);
-int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath);
-int read_file(char *filename, unsigned char **data, size_t *len);
-int process_path(char *path, char *outputPath);
-int process_rpo_file(char *filepath, char *outputPath);
 int search_config(char *searchValue, char *outputPath);
+
+int determine_file_type(char *filename);
+void print_with_padding(char *str, int len, char delim);
+void print_bytes_with_padding(long bytes);
 void add_url(char ***array, int *size, int *capacity, const char *str);
+
 
 int main(int argc, char **argv)
 {
@@ -59,182 +64,6 @@ int main(int argc, char **argv)
     printf("  -s, --search <term>       Search for shells and download as .obj \n");
     printf("  -o, --output <path>       Output file or folder for the converted file(s)\n");
 
-    return 0;
-}
-
-int read_file(char *filename, unsigned char **data, size_t *len)
-{
-    FILE *fp = fopen(filename, "rb");
-    if (!fp)
-    {
-        fprintf(stderr, "error: failed to open file: %s\n", filename);
-        return 1;
-    }
-
-    fseek(fp, 0, SEEK_END);
-    *len = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    *data = (unsigned char *)malloc(*len);
-    if (!*data || fread(*data, 1, *len, fp) != *len)
-    {
-        fprintf(stderr, "error: failed to allocate memory or read file: %s\n", filename);
-        fclose(fp);
-        free(*data);
-        return 1;
-    }
-
-    fclose(fp);
-    return 0;
-}
-
-int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
-{
-    int fromCompressed = 0;
-
-    if (*(unsigned short *)rpoData == RPOZ_MAGIC)
-    {
-        fromCompressed = 1;
-
-        size_t lenOut = 0;
-        unsigned char *rpoOut = NULL;
-        int result = decompress(rpoData, rpoLen, &rpoOut, &lenOut);
-        if (result != Z_OK)
-        {
-            fprintf(stderr, "error: decompression failed with error code: %d\n", result);
-            free(rpoOut);
-            return 1;
-        }
-        rpoData = rpoOut;
-        rpoLen = lenOut;
-    }
-
-    if (*(unsigned int *)rpoData != RPO1_MAGIC)
-    {
-        fprintf(stderr, "error: invalid .rpo file: %s\n", objPath);
-        return 1;
-    }
-
-    FILE *objFile = fopen(objPath, "wb");
-    if (!objFile)
-    {
-        fprintf(stderr, "error: failed to open obj file: %s\n", objPath);
-        return 1;
-    }
-
-    char *rpoPath = (char *)malloc(strlen(objPath) + 5 + fromCompressed);
-    if (rpoPath == NULL)
-    {
-        fprintf(stderr, "error: failed to allocate memory for rpo path\n");
-        fclose(objFile);
-        return 1;
-    }
-    strcpy(rpoPath, strrchr(objPath, '/') + 1);
-    strtok(rpoPath, ".");
-    strcat(rpoPath, ".rpo");
-    if (fromCompressed)
-        strcat(rpoPath, "z");
-
-    fprintf(objFile, "# Converted from %s\n", rpoPath);
-    fprintf(objFile, "# This file is property of Auxbrain, Inc. and should be treated as such.\n\n");
-
-    free(rpoPath);
-
-    int vertices = *(int *)(rpoData + 0x4);
-    int faces = *(int *)(rpoData + 0x8) / 6;
-    int headerLen = 0, vertexLen = 0;
-
-    for (int addr = 0; addr < rpoLen; addr += 4)
-    {
-        unsigned int token = *(unsigned int *)(rpoData + addr);
-        if (token == CHUNK_INDICATOR)
-        {
-            vertexLen += 4 * *(unsigned int *)(rpoData + addr - 4);
-        }
-        if (token == 0 && *(unsigned int *)(rpoData + addr + 4) > 4)
-        {
-            headerLen = addr + 8;
-            break;
-        }
-    }
-
-    for (int i = 0; i < vertices; i++)
-    {
-        int tokens = vertexLen / 4 - (vertexLen / 4) % 3;
-        if (tokens > 6)
-            tokens = 6;
-
-        fprintf(objFile, "v ");
-        for (int j = 0; j < tokens; j++)
-        {
-            float k = *(float *)(rpoData + headerLen + i * vertexLen + j * 4);
-            fprintf(objFile, "%f ", k);
-        }
-        fprintf(objFile, "\n");
-    }
-
-    fprintf(objFile, "\n");
-
-    for (int i = 0; i < faces; i++)
-    {
-        fprintf(objFile, "f ");
-        for (int j = 0; j < 3; j++)
-        {
-            unsigned short k = *(unsigned short *)(rpoData + headerLen + vertices * vertexLen + i * 6 + j * 2) + 1;
-            fprintf(objFile, "%d ", k);
-        }
-        fprintf(objFile, "\n");
-    }
-
-    fclose(objFile);
-    strtok(objPath, ".");
-    printf("info: created %s.obj from .rpo(z)\n", strchr(objPath, '/') + 1);
-
-    return 0;
-}
-
-int process_rpo_file(char *filepath, char *outputPath)
-{
-    size_t rpoLen = 0;
-    unsigned char *rpo = NULL;
-
-    if (read_file(filepath, &rpo, &rpoLen) != 0)
-    {
-        free(rpo);
-        return 1;
-    }
-
-    char *objPath = NULL;
-    if (outputPath)
-    {
-        objPath = outputPath;
-    }
-    else
-    {
-        objPath = (char *)malloc(strlen(filepath) + 5);
-        if (objPath == NULL)
-        {
-            fprintf(stderr, "error: failed to allocate memory for obj path\n");
-            free(rpo);
-            return 1;
-        }
-        strcpy(objPath, filepath);
-        char *ext = strrchr(objPath, '.');
-        if (ext)
-            *ext = '\0';
-        strcat(objPath, ".obj");
-    }
-
-    if (convert_rpo_to_obj(rpo, rpoLen, objPath) != 0)
-    {
-        fprintf(stderr, "error: failed to convert file: %s\n", filepath);
-        free(objPath);
-        free(rpo);
-        return 1;
-    }
-
-    free(objPath);
-    free(rpo);
     return 0;
 }
 
@@ -365,6 +194,182 @@ int process_path(char *path, char *outputPath)
     return 0;
 }
 
+int read_file(char *filename, unsigned char **data, size_t *len)
+{
+    FILE *fp = fopen(filename, "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "error: failed to open file: %s\n", filename);
+        return 1;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    *len = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    *data = (unsigned char *)malloc(*len);
+    if (!*data || fread(*data, 1, *len, fp) != *len)
+    {
+        fprintf(stderr, "error: failed to allocate memory or read file: %s\n", filename);
+        fclose(fp);
+        free(*data);
+        return 1;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+int process_rpo_file(char *filepath, char *outputPath)
+{
+    size_t rpoLen = 0;
+    unsigned char *rpo = NULL;
+
+    if (read_file(filepath, &rpo, &rpoLen) != 0)
+    {
+        free(rpo);
+        return 1;
+    }
+
+    char *objPath = NULL;
+    if (outputPath)
+    {
+        objPath = outputPath;
+    }
+    else
+    {
+        objPath = (char *)malloc(strlen(filepath) + 5);
+        if (objPath == NULL)
+        {
+            fprintf(stderr, "error: failed to allocate memory for obj path\n");
+            free(rpo);
+            return 1;
+        }
+        strcpy(objPath, filepath);
+        char *ext = strrchr(objPath, '.');
+        if (ext)
+            *ext = '\0';
+        strcat(objPath, ".obj");
+    }
+
+    if (convert_rpo_to_obj(rpo, rpoLen, objPath) != 0)
+    {
+        fprintf(stderr, "error: failed to convert file: %s\n", filepath);
+        free(objPath);
+        free(rpo);
+        return 1;
+    }
+
+    free(objPath);
+    free(rpo);
+    return 0;
+}
+
+int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
+{
+    int fromCompressed = 0;
+
+    if (*(unsigned short *)rpoData == RPOZ_MAGIC)
+    {
+        fromCompressed = 1;
+
+        size_t lenOut = 0;
+        unsigned char *rpoOut = NULL;
+        int result = decompress(rpoData, rpoLen, &rpoOut, &lenOut);
+        if (result != Z_OK)
+        {
+            fprintf(stderr, "error: decompression failed with error code: %d\n", result);
+            free(rpoOut);
+            return 1;
+        }
+        rpoData = rpoOut;
+        rpoLen = lenOut;
+    }
+
+    if (*(unsigned int *)rpoData != RPO1_MAGIC)
+    {
+        fprintf(stderr, "error: invalid .rpo file: %s\n", objPath);
+        return 1;
+    }
+
+    FILE *objFile = fopen(objPath, "wb");
+    if (!objFile)
+    {
+        fprintf(stderr, "error: failed to open obj file: %s\n", objPath);
+        return 1;
+    }
+
+    char *rpoPath = (char *)malloc(strlen(objPath) + 5 + fromCompressed);
+    if (rpoPath == NULL)
+    {
+        fprintf(stderr, "error: failed to allocate memory for rpo path\n");
+        fclose(objFile);
+        return 1;
+    }
+    strcpy(rpoPath, strrchr(objPath, '/') + 1);
+    strtok(rpoPath, ".");
+    strcat(rpoPath, ".rpo");
+    if (fromCompressed)
+        strcat(rpoPath, "z");
+
+    fprintf(objFile, "# Converted from %s\n", rpoPath);
+    fprintf(objFile, "# This file is property of Auxbrain, Inc. and should be treated as such.\n\n");
+
+    free(rpoPath);
+
+    int vertices = *(int *)(rpoData + 0x4);
+    int faces = *(int *)(rpoData + 0x8) / 6;
+    int headerLen = 0, vertexLen = 0;
+
+    for (int addr = 0; addr < rpoLen; addr += 4)
+    {
+        unsigned int token = *(unsigned int *)(rpoData + addr);
+        if (token == CHUNK_INDICATOR)
+        {
+            vertexLen += 4 * *(unsigned int *)(rpoData + addr - 4);
+        }
+        if (token == 0 && *(unsigned int *)(rpoData + addr + 4) > 4)
+        {
+            headerLen = addr + 8;
+            break;
+        }
+    }
+
+    for (int i = 0; i < vertices; i++)
+    {
+        int tokens = vertexLen / 4 - (vertexLen / 4) % 3;
+        if (tokens > 6)
+            tokens = 6;
+
+        fprintf(objFile, "v ");
+        for (int j = 0; j < tokens; j++)
+        {
+            float k = *(float *)(rpoData + headerLen + i * vertexLen + j * 4);
+            fprintf(objFile, "%f ", k);
+        }
+        fprintf(objFile, "\n");
+    }
+
+    fprintf(objFile, "\n");
+
+    for (int i = 0; i < faces; i++)
+    {
+        fprintf(objFile, "f ");
+        for (int j = 0; j < 3; j++)
+        {
+            unsigned short k = *(unsigned short *)(rpoData + headerLen + vertices * vertexLen + i * 6 + j * 2) + 1;
+            fprintf(objFile, "%d ", k);
+        }
+        fprintf(objFile, "\n");
+    }
+
+    fclose(objFile);
+    strtok(objPath, ".");
+    printf("info: created %s.obj from .rpo(z)\n", strchr(objPath, '/') + 1);
+
+    return 0;
+}
+
 int request(char *URL, char *method, unsigned char **data, size_t *len)
 {
     naettReq *req = naettRequest(URL, naettMethod(method), naettHeader("accept", "*/*"));
@@ -481,51 +486,6 @@ int decompress(unsigned char *source, size_t sourceLen, unsigned char **dest, si
         free(*dest);
         return Z_DATA_ERROR;
     }
-}
-
-int determine_file_type(char *filename)
-{
-    struct stat st;
-    if (stat(filename, &st) == 0)
-    {
-        if (st.st_mode & S_IFDIR)
-            return 1;
-        if (st.st_mode & S_IFREG)
-            return 0;
-    }
-    return -1;
-}
-
-void print_with_padding(char *str, int len, char delim)
-{
-    int sel = 1;
-    int strLen = strlen(str);
-
-    for (int i = 0; i < len; i++)
-    {
-        if (i >= strLen || str[i] == delim)
-            sel = 0;
-
-        if (sel)
-            printf("%c", str[i]);
-        else
-            printf(" ");
-    }
-}
-
-void print_bytes_with_padding(long bytes)
-{
-    char *suffix[] = {" B", "KB", "MB", "GB", "TB"};
-    int i = 0;
-    double dblBytes = bytes;
-
-    if (bytes > 1024)
-    {
-        for (i = 0; (bytes / 1024) > 0 && i < 4; i++, bytes /= 1024)
-            dblBytes = bytes / 1024.0;
-    }
-
-    printf("%7.2f %s", dblBytes, suffix[i]);
 }
 
 int search_config(char *searchValue, char *outputPath)
@@ -706,7 +666,7 @@ int search_config(char *searchValue, char *outputPath)
     print_bytes_with_padding(shellsize + chickensize);
 
     if (outputPath == NULL)
-            printf("\nDownload all to your current folder? [Y/n] ");
+        printf("\nDownload all to your current folder? [Y/n] ");
     else
         printf("\nDownload all to \"%s\"? [Y/n] ", outputPath);
 
@@ -775,6 +735,51 @@ int search_config(char *searchValue, char *outputPath)
     }
     free(urlarr);
     return 0;
+}
+
+int determine_file_type(char *filename)
+{
+    struct stat st;
+    if (stat(filename, &st) == 0)
+    {
+        if (st.st_mode & S_IFDIR)
+            return 1;
+        if (st.st_mode & S_IFREG)
+            return 0;
+    }
+    return -1;
+}
+
+void print_with_padding(char *str, int len, char delim)
+{
+    int sel = 1;
+    int strLen = strlen(str);
+
+    for (int i = 0; i < len; i++)
+    {
+        if (i >= strLen || str[i] == delim)
+            sel = 0;
+
+        if (sel)
+            printf("%c", str[i]);
+        else
+            printf(" ");
+    }
+}
+
+void print_bytes_with_padding(long bytes)
+{
+    char *suffix[] = {" B", "KB", "MB", "GB", "TB"};
+    int i = 0;
+    double dblBytes = bytes;
+
+    if (bytes > 1024)
+    {
+        for (i = 0; (bytes / 1024) > 0 && i < 4; i++, bytes /= 1024)
+            dblBytes = bytes / 1024.0;
+    }
+
+    printf("%7.2f %s", dblBytes, suffix[i]);
 }
 
 void add_url(char ***array, int *size, int *capacity, const char *str)

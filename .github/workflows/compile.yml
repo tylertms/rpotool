@@ -25,7 +25,7 @@ jobs:
 
     - name: Compile and package
       run: |
-        gcc -o ${{ env.OUTPUT_NAME }} ${{ env.FILE_PATH }} -lz -lcurl
+        make
         chmod +x ${{ env.OUTPUT_NAME }}
         mkdir output
         mv ${{ env.OUTPUT_NAME }} output/

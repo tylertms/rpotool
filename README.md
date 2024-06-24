@@ -5,6 +5,7 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+  - [Examples](#examples)
 - [Importing to Blender](#importing-to-blender)
 - [Compiling](#compiling)
 - [License](#license)

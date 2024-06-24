@@ -26,19 +26,21 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: sudo apt-get install libcurl4-gnutls-dev
 
-
-    - name: Compile and package
+    - name: Compile and package for Windows
+      if: matrix.os == 'windows-latest'
       run: |
         make
         mkdir output
+        mv ${{ env.OUTPUT_NAME }}.exe output/
+        mv README.md output/
 
-        if startsWith(matrix.os, 'windows'); then
-          mv ${{ env.OUTPUT_NAME }}.exe output/
-        else
-          chmod +x ${{ env.OUTPUT_NAME }}
-          mv ${{ env.OUTPUT_NAME }} output/
-        fi
-
+    - name: Compile and package for macOS and Linux
+      if: matrix.os != 'windows-latest'
+      run: |
+        make
+        mkdir output
+        chmod +x ${{ env.OUTPUT_NAME }}
+        mv ${{ env.OUTPUT_NAME }} output/
         mv README.md output/
 
     - name: Upload artifact Ubuntu

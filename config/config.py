@@ -23,7 +23,6 @@ def get_config() -> ei_pb.ConfigResponse:
 
 def parse_config():
     config = get_config()
-    print(config)
     dlc_catalog = config.dlc_catalog
 
     with open("shells.txt", "w") as f:
@@ -54,6 +53,10 @@ def parse_config():
 
             if type not in asset_types:
                 asset_types.append(type)
+            
+            if len(url_key) != 32:
+                print(f"Invalid URL Key: {url_key}")
+                continue
 
             f.write(f"shell|{set_name} - {type}|{shell.identifier}|{url_key}|{original_size}\n")
 
@@ -67,7 +70,12 @@ def parse_config():
 
             for piece in shell_object.pieces:
                 url_key = piece.dlc.url.split("_")[-1].split(".")[0]
-                f.write(f"chicken|{object_name}|{piece.dlc.name}|{url_key}|{piece.dlc.original_size}\n")
+                dlc_name = piece.dlc.name
+
+                if len(url_key) != 32:
+                    dlc_name = str.join("_", piece.dlc.url.split("_")[:-1]).split("/")[-1]
+
+                f.write(f"chicken|{object_name}|{dlc_name}|{url_key}|{piece.dlc.original_size}\n")
         
 
 if __name__ == "__main__":

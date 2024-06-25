@@ -293,7 +293,6 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
         rpoData = rpoOut;
         rpoLen = lenOut;
     }
-
     if (*(unsigned int *)rpoData != RPO1_MAGIC)
     {
         fprintf(stderr, "error: invalid .rpo file: %s\n", objPath);
@@ -702,6 +701,8 @@ int search_config(char *searchValue, char *outputPath)
                 return 1;
             }
         }
+    } else {
+        outputPath = "./";
     }
 
     for (int i = 0; i < size; i++)
@@ -742,14 +743,6 @@ int search_config(char *searchValue, char *outputPath)
         if (convert_rpo_to_obj(rpo, rpoLen, objPath) != 0)
         {
             fprintf(stderr, "error: failed to convert file: %s\n", urlarr[i]);
-            free(rpo);
-            free(objPath);
-            for (int i = 0; i < size; i++)
-            {
-                free(urlarr[i]);
-            }
-            free(urlarr);
-            return 1;
         }
 
         free(rpo);

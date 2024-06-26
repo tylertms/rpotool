@@ -22,6 +22,11 @@
 #define mkdir(path, mode) mkdir(path)
 #endif
 
+typedef struct
+{
+    float r, g, b, e;
+} mtl;
+
 int process_path(char *path, char *outputPath);
 int read_file(char *filename, unsigned char **data, size_t *len);
 int process_rpo_file(char *filepath, char *outputPath);
@@ -35,7 +40,6 @@ int determine_file_type(char *filename);
 void print_with_padding(char *str, int len, char delim);
 void print_bytes_with_padding(long bytes);
 void add_url(char ***array, int *size, int *capacity, const char *str);
-
 
 int main(int argc, char **argv)
 {
@@ -106,7 +110,6 @@ int process_path(char *path, char *outputPath)
             strcpy(newOutputPath, outputPath);
             if (strrchr(newOutputPath, '.obj') == NULL)
                 strcat(newOutputPath, ".obj");
-            
 
             outputPath = newOutputPath;
 
@@ -307,17 +310,24 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
     }
 
     char *rpoPath = (char *)malloc(strlen(objPath) + 5 + fromCompressed);
-    if (rpoPath == NULL)
+    char *mtlPath = (char *)malloc(strlen(objPath) + 5 + fromCompressed);
+    if (rpoPath == NULL || mtlPath == NULL)
     {
-        fprintf(stderr, "error: failed to allocate memory for rpo path\n");
+        fprintf(stderr, "error: failed to allocate memory for output file paths\n");
         fclose(objFile);
         return 1;
     }
 
     if (strrchr(objPath, '/') == NULL)
+    {
         strcpy(rpoPath, objPath);
+        strcpy(mtlPath, objPath);
+    }
     else
+    {
         strcpy(rpoPath, strrchr(objPath, '/') + 1);
+        strcpy(mtlPath, strrchr(objPath, '/') + 1);
+    }
 
     strtok(rpoPath, ".");
     strcat(rpoPath, ".rpo");
@@ -328,6 +338,21 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
     fprintf(objFile, "# This file is property of Auxbrain, Inc. and should be treated as such.\n\n");
 
     free(rpoPath);
+
+    strrchr(mtlPath, '.')[0] = '\0';
+    fprintf(objFile, "mtllib %s.mtl\n\n", mtlPath);
+    strcat(mtlPath, ".mtl");
+
+    FILE *mtlFile = fopen(mtlPath, "wb");
+    if (!mtlFile)
+    {
+        fprintf(stderr, "error: failed to open mtl file: %s\n", mtlPath);
+        fclose(objFile);
+        free(mtlPath);
+        return 1;
+    }
+
+    free(mtlPath);
 
     int vertices = *(int *)(rpoData + 0x4);
     int faces = *(int *)(rpoData + 0x8) / 6;
@@ -347,25 +372,103 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
         }
     }
 
+    mtl *mtls = (mtl *)calloc(100, sizeof(mtl));
+    short *mtlChangeIndices = (short *)calloc(100, sizeof(short));
+
+    int mtlCount = 0;
+    int mtlChangeCount = 0;
+
     for (int i = 0; i < vertices; i++)
     {
-        int tokens = vertexLen / 4 - (vertexLen / 4) % 3;
-        if (tokens > 6)
-            tokens = 6;
+        int tokens = vertexLen / 4;
 
         fprintf(objFile, "v ");
-        for (int j = 0; j < tokens; j++)
+        for (int j = 0; j < tokens && j < 6; j++)
         {
             float k = *(float *)(rpoData + headerLen + i * vertexLen + j * 4);
             fprintf(objFile, "%f ", k);
         }
         fprintf(objFile, "\n");
+
+        if (tokens < 7 || i == 0)
+            continue;
+        float emission = *(float *)(rpoData + headerLen + i * vertexLen + 6 * 4);
+
+        if (mtlChangeCount && fabs(emission - *(float *)(rpoData + headerLen + (i - 1) * vertexLen + 6 * 4)) < 0.01)
+        {
+            continue;
+        }
+
+        mtlChangeIndices[mtlChangeCount++] = i;
+
+        int found = -1;
+        for (int j = 0; j < mtlCount; j++)
+        {
+            if (fabsf(mtls[j].e - emission) < 0.01)
+            {
+                found = j;
+                break;
+            }
+        }
+
+        mtls[mtlCount].r = *(float *)(rpoData + headerLen + i * vertexLen + 3 * 4);
+        mtls[mtlCount].g = *(float *)(rpoData + headerLen + i * vertexLen + 4 * 4);
+        mtls[mtlCount].b = *(float *)(rpoData + headerLen + i * vertexLen + 5 * 4);
+        mtls[mtlCount].e = emission;
+
+        if (found == -1)
+        {
+            fprintf(mtlFile, "newmtl mtl%d\n", mtlCount);
+            if (emission)
+            {
+                float r = mtls[mtlCount].r * emission;
+                float g = mtls[mtlCount].g * emission;
+                float b = mtls[mtlCount].b * emission;
+                fprintf(mtlFile, "Ka %f %f %f\n", r, g, b);
+                fprintf(mtlFile, "Kd %f %f %f\n", r, g, b);
+                fprintf(mtlFile, "Ke %f %f %f\n", r, g, b);
+            }
+            fprintf(mtlFile, "\n");
+            mtlCount++;
+        }
     }
 
     fprintf(objFile, "\n");
 
+    int mtlFaceChanges = 0;
     for (int i = 0; i < faces; i++)
     {
+        int mtlChanges = 0;
+        for (int j = 0; j < 3; j++)
+        {
+
+            unsigned short k = *(unsigned short *)(rpoData + headerLen + vertices * vertexLen + i * 6 + j * 2) + 1;
+            if (mtlFaceChanges < mtlChangeCount && k >= mtlChangeIndices[mtlFaceChanges])
+            {
+                mtlChanges = 1;
+                mtlFaceChanges++;
+                break;
+            }
+        }
+
+        if (mtlChanges)
+        {
+            int found = 0;
+            for (int j = 0; j < mtlCount; j++)
+            {
+                if (fabsf(mtls[j].r - *(float *)(rpoData + headerLen + mtlChangeIndices[mtlFaceChanges - 1] * vertexLen + 3 * 4)) < 0.01 &&
+                    fabsf(mtls[j].g - *(float *)(rpoData + headerLen + mtlChangeIndices[mtlFaceChanges - 1] * vertexLen + 4 * 4)) < 0.01 &&
+                    fabsf(mtls[j].b - *(float *)(rpoData + headerLen + mtlChangeIndices[mtlFaceChanges - 1] * vertexLen + 5 * 4)) < 0.01 &&
+                    fabsf(mtls[j].e - *(float *)(rpoData + headerLen + mtlChangeIndices[mtlFaceChanges - 1] * vertexLen + 6 * 4)) < 0.01)
+                {
+                    found = j;
+                    break;
+                }
+            }
+
+            fprintf(objFile, "usemtl mtl%d\n", found);
+        }
+
         fprintf(objFile, "f ");
         for (int j = 0; j < 3; j++)
         {
@@ -376,12 +479,13 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
     }
 
     fclose(objFile);
+    fclose(mtlFile);
+
     strtok(objPath, ".");
     if (strchr(objPath, '/') == NULL)
-       printf("info: created %s.obj from .rpo(z)\n", objPath);
+        printf("info: created %s.obj from .rpo(z)\n", objPath);
     else
         printf("info: created %s.obj from .rpo(z)\n", strchr(objPath, '/') + 1);
-    
 
     return 0;
 }
@@ -701,7 +805,9 @@ int search_config(char *searchValue, char *outputPath)
                 return 1;
             }
         }
-    } else {
+    }
+    else
+    {
         outputPath = "./";
     }
 

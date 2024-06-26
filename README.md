@@ -65,13 +65,15 @@ After importing your .obj file into blender, complete the following:
 
 ![step_1](./demo/blender/step1.png)
 
-2. Select `Add > Input > Color Attribute`
+2. For `mtl0`, select `Add > Input > Color Attribute`
 
 ![step_2](./demo/blender/step2.png)
 
 3. Connect the `Color` node of `Color Attribute` to the `Base Color` node of the material
 
 ![step_3](./demo/blender/step3.png)
+
+4. If the object has more than one material (`mtl1+`), these are light sources. To enable these, open the material in the sidebar of any tab, open `Surface > Emission` and increase the strength to your liking (default: 1).
 
 ## Compiling
 

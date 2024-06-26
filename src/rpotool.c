@@ -326,7 +326,7 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
     else
     {
         strcpy(rpoPath, strrchr(objPath, '/') + 1);
-        strcpy(mtlPath, strrchr(objPath, '/') + 1);
+        strcpy(mtlPath, objPath);
     }
 
     strtok(rpoPath, ".");
@@ -336,8 +336,6 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
 
     fprintf(objFile, "# Converted from %s\n", rpoPath);
     fprintf(objFile, "# This file is property of Auxbrain, Inc. and should be treated as such.\n\n");
-
-    free(rpoPath);
 
     strrchr(mtlPath, '.')[0] = '\0';
     fprintf(objFile, "mtllib %s.mtl\n\n", mtlPath);
@@ -353,6 +351,7 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
     }
 
     free(mtlPath);
+    free(rpoPath);
 
     int vertices = *(int *)(rpoData + 0x4);
     int faces = *(int *)(rpoData + 0x8) / 6;
@@ -372,8 +371,8 @@ int convert_rpo_to_obj(unsigned char *rpoData, size_t rpoLen, char *objPath)
         }
     }
 
-    mtl *mtls = (mtl *)calloc(100, sizeof(mtl));
-    short *mtlChangeIndices = (short *)calloc(100, sizeof(short));
+    mtl *mtls = (mtl *)calloc(vertices, sizeof(mtl));
+    short *mtlChangeIndices = (short *)calloc(vertices, sizeof(short));
 
     int mtlCount = 0;
     int mtlChangeCount = 0;

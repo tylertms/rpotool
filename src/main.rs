@@ -15,7 +15,7 @@ fn main() {
     // Read arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: {} <input> [-o|--output <output>]", args[0]);
+        eprintln!("Usage: {} <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]", args[0]);
         std::process::exit(1);
     }
 
@@ -280,7 +280,7 @@ fn browse_shells(search_term: &str, output_path: &Path) {
     let chicken_id_len = chickens.iter().map(|chicken| chicken.get(2).unwrap().len()).max().unwrap_or(0);
 
     if !shells.is_empty() {
-        println!("\n");
+        println!();
         let header = format!("{:name_len$} | {:>9} | {:id_len$}", "Shell", "Size", "ID", name_len=shell_len, id_len=shell_id_len);
         println!("{}", header);
         println!("{}", "-".repeat(header.len()));
@@ -295,7 +295,7 @@ fn browse_shells(search_term: &str, output_path: &Path) {
     }
 
     if !chickens.is_empty() {
-        println!("\n");
+        println!();
         let header = format!("{:name_len$} | {:>9} | {:id_len$}", "Chicken", "Size", "ID", name_len=chicken_len, id_len=chicken_id_len);
         println!("{}", header);
         println!("{}", "-".repeat(header.len()));
@@ -313,11 +313,11 @@ fn browse_shells(search_term: &str, output_path: &Path) {
     let total_chicken_size: u64 = chickens.clone().iter().map(|chicken| chicken.get(4).unwrap().parse::<u64>().unwrap()).sum();
 
     println!("\n{:<20} | {:>9}", "Summary", "Size");
-    println!("{}", "-".repeat(30));
+    println!("{}", "-".repeat(32));
     println!("{:<20} | {:>9}", "Shells", bytes_to_readable(total_shell_size));
     println!("{:<20} | {:>9}\n", "Chickens", bytes_to_readable(total_chicken_size));
 
-    println!("\nTotal Size: {}", bytes_to_readable(total_shell_size + total_chicken_size));
+    println!("Total Size: {}", bytes_to_readable(total_shell_size + total_chicken_size));
 
     if output_path == Path::new(".") {
         print!("Download all to your current folder? (y/n) ");
@@ -334,9 +334,13 @@ fn browse_shells(search_term: &str, output_path: &Path) {
             fs::create_dir_all(output_path).expect("error: failed to create output directory");
         }
 
-        for shell in shells {
-            let id = shell.get(2).unwrap();
-            let hash = shell.get(3).unwrap();
+        let mut assets = Vec::new();
+        assets.extend(shells);
+        assets.extend(chickens);
+
+        for asset in assets {
+            let id = asset.get(2).unwrap();
+            let hash = asset.get(3).unwrap();
             let url = format!("{}{}_{}.rpoz", DLC_URL, id, hash);
 
             let response = get(&url).unwrap();

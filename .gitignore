@@ -1,3 +1,7 @@
 .vscode/
 config/__pycache__/
 .DS_Store
+
+# Added by cargo
+
+/target

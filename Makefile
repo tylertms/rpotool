@@ -1,4 +1,4 @@
-CFLAGS = -O2 -lz -I"./src/lib" -Wall -pedantic
+CFLAGS = -O2 -lz -I"./csrc/lib" -Wall -pedantic
 
 ifeq ($(OS),Windows_NT)
 	CFLAGS += -o rpotool.exe
@@ -14,5 +14,5 @@ else
 	endif
 endif
 
-rpotool: src/*.c src/lib/*.c
+rpotool: csrc/*.c csrc/lib/*.c
 	gcc $^ $(CFLAGS) $(LDFLAGS)

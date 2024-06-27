@@ -1,70 +1,159 @@
+use flate2::bufread::DeflateDecoder;
+use std::env;
 use std::fs::{self, File};
-use std::io::{BufReader, Read, Seek, Write};
+use std::io::{Read, Write, Cursor};
 use std::path::{Path, PathBuf};
+use reqwest::{self, blocking::get};
 
-const MAGIC_HEADER: u32 = 0x52504F31;
+const RPO1_MAGIC: u32 = 0x52504F31;
+const RPOZ_MAGIC: u16 = 0x789C;
 const CHUNK_INDICATOR: u32 = 0x1406;
+const CONFIG_URL: &str = "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/";
+const DLC_URL: &str = "https://auxbrain.com/dlc/shells/";
 
 fn main() {
-    // read arguments
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() != 4 || args[2] != "-o" {
-        eprintln!("Usage: {} <input> -o <output>", args[0]);
+    // Read arguments
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} <input> [-o|--output <output>]", args[0]);
         std::process::exit(1);
     }
 
-    let input_path = &args[1];
-    let output_path = &args[3];
+    let mut input_path = None;
+    let mut output_path = None;
+    let mut search_term = None;
+    
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-o" | "--output" => {
+                if i + 1 < args.len() {
+                    output_path = Some(args[i + 1].clone());
+                    i += 1;
+                } else {
+                    eprintln!("error: missing output path");
+                    std::process::exit(1);
+                }
+            }
+            "-s" | "--search" => {
+                if i + 1 < args.len() {                    
+                    search_term = Some(args[i + 1].clone());
+                } else {
+                    eprintln!("error: missing search term");
+                    std::process::exit(1);
+                }
+            }
+            _ => {
+                if input_path.is_none() {
+                    input_path = Some(args[i].clone());
+                } else {
+                    eprintln!("error: multiple input paths provided");
+                    std::process::exit(1);
+                }
+            }
+        }
+        i += 1;
+    }
 
-    let input_metadata = fs::metadata(input_path).unwrap();
+    if search_term.is_some() {
+        let output_path = output_path.unwrap_or_else(|| ".".to_string());
+        browse_shells(&search_term.unwrap(), Path::new(&output_path));
+        return;
+    }
+
+    let input_path = input_path.expect("error: missing input path");
+    let input_metadata = fs::metadata(&input_path).expect("error: failed to read input metadata");
 
     if input_metadata.is_dir() {
-        let output_metadata = fs::metadata(output_path);
+        if output_path.is_none() {
+            output_path = Some(input_path.clone());
+        }
+
+        let output_path = output_path.unwrap();
+        let output_metadata = fs::metadata(&output_path);
         if output_metadata.is_err() || !output_metadata.as_ref().unwrap().is_dir() {
             if output_metadata.is_ok() {
                 eprintln!("error: {} is an existing file", output_path);
                 std::process::exit(1);
             }
-            fs::create_dir_all(output_path).unwrap();
+            fs::create_dir_all(&output_path).expect("error: failed to create output directory");
         }
-        for entry in fs::read_dir(input_path).unwrap() {
-            let entry = entry.unwrap();
+
+        for entry in fs::read_dir(&input_path).expect("error: failed to read input directory") {
+            let entry = entry.expect("error: failed to read directory entry");
             let path = entry.path();
             if path.is_file() {
-                let output_file = Path::new(output_path).join(path.file_name().unwrap()).with_extension("obj");
-                convert_file(&path, &output_file);
-            } else {
-                eprintln!("error: {} is not a file", path.display());
+                match path.extension().and_then(|ext| ext.to_str()) {
+                    Some("rpo") | Some("rpoz") => {
+                        let output_file = Path::new(&output_path)
+                            .join(path.file_name().expect("error: invalid file name"))
+                            .with_extension("obj");
+                        convert_file(&path, &output_file);
+                    }
+                    _ => {
+                        eprintln!("info: ignoring non .rpo(z) {}", path.display());
+                    }
+                }
             }
         }
     } else {
-        let output_file = Path::new(output_path).with_extension("obj");
+        let output_path = output_path.unwrap_or_else(|| {
+            let input_file_name = Path::new(&input_path)
+                .file_stem()
+                .expect("error: invalid input path")
+                .to_string_lossy()
+                .into_owned();
+            format!("{}.obj", input_file_name)
+        });
+
+        let output_path = if output_path.ends_with(".obj") {
+            output_path
+        } else {
+            format!("{}.obj", output_path)
+        };
+
+        let output_file = Path::new(&output_path);
         convert_file(&PathBuf::from(input_path), &output_file);
     }
 }
 
 fn convert_file(input_path: &Path, output_path: &Path) {
-    // open file and check for valid RPO1 header
-    let mut file = BufReader::new(File::open(input_path).unwrap());
+    let mut file_content = Vec::new();
+    File::open(input_path)
+        .unwrap()
+        .read_to_end(&mut file_content)
+        .unwrap();
+
+    convert_buffer(&file_content, output_path);
+}
+
+fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
+    let file_content = input_buffer;
+
+    let file_content = if file_content.starts_with(&RPO1_MAGIC.to_be_bytes()) {
+        file_content.to_vec()
+    } else if file_content.starts_with(&RPOZ_MAGIC.to_be_bytes()) {
+        let compressed_data = &file_content[2..];
+        let mut decoder = DeflateDecoder::new(compressed_data);
+        let mut buffer = Vec::new();
+        decoder.read_to_end(&mut buffer).unwrap();
+        buffer
+    } else {
+        eprintln!(
+            "error: provided buffer is not a valid .rpo(z) file"
+        );
+        return;
+    };
+
+    let mut cursor = Cursor::new(file_content);
+    cursor.set_position(4);
     let mut quad_buffer = [0; 4];
 
-    file.read_exact(&mut quad_buffer).unwrap();
-    let header = u32::from_be_bytes(quad_buffer);
-
-    if header != MAGIC_HEADER {
-        eprintln!("error: {} is not a valid .rpo file", input_path.display());
-        return;
-    }
-
-    // read vertex and face count
-    file.read_exact(&mut quad_buffer).unwrap();
+    cursor.read_exact(&mut quad_buffer).unwrap();
     let vertices_count = u32::from_le_bytes(quad_buffer);
 
-    file.read_exact(&mut quad_buffer).unwrap();
+    cursor.read_exact(&mut quad_buffer).unwrap();
     let faces_count = u32::from_le_bytes(quad_buffer) / 6;
-
-    //println!("Vertices: {}", vertices_count);
-    //println!("Faces: {}", faces_count);
 
     let header_length: u32;
     let mut tokens: u8 = 0;
@@ -72,85 +161,198 @@ fn convert_file(input_path: &Path, output_path: &Path) {
 
     // find header length and token count
     loop {
-        file.read_exact(&mut quad_buffer).unwrap();
+        cursor.read_exact(&mut quad_buffer).unwrap();
         value = u32::from_le_bytes(quad_buffer);
 
         if value == CHUNK_INDICATOR {
-            file.seek_relative(-8).unwrap();
-            file.read_exact(&mut quad_buffer).unwrap();
-            file.seek_relative(4).unwrap();
+            cursor.set_position(cursor.position() - 8);
+            cursor.read_exact(&mut quad_buffer).unwrap();
+            cursor.set_position(cursor.position() + 4);
             tokens += u32::from_le_bytes(quad_buffer) as u8;
             continue;
         }
 
         if value == 0 {
-            file.read_exact(&mut quad_buffer).unwrap();
+            cursor.read_exact(&mut quad_buffer).unwrap();
             value = u32::from_le_bytes(quad_buffer);
             if value > 4 {
-                header_length = file.stream_position().unwrap() as u32;
+                header_length = cursor.position() as u32;
                 break;
             }
-            file.seek_relative(-4).unwrap();
+            cursor.set_position(cursor.position() - 4);
         }
     }
 
-
-    file.seek(std::io::SeekFrom::Start(header_length as u64)).unwrap();
+    cursor.set_position(header_length as u64);
 
     // read vertices
-    let mut vertices: Vec<(f32, f32, f32, f32, f32, f32, f32)> = Vec::with_capacity(vertices_count as usize);
+    let mut vertices: Vec<[f32; 7]> = Vec::with_capacity(vertices_count as usize);
     for _ in 0..vertices_count {
-        let mut vertex = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let mut vertex = [0.0; 7];
         for i in 0..tokens {
-            file.read_exact(&mut quad_buffer).unwrap();
+            cursor.read_exact(&mut quad_buffer).unwrap();
             let value = f32::from_le_bytes(quad_buffer);
-            match i {
-                0 => vertex.0 = value,
-                1 => vertex.1 = value,
-                2 => vertex.2 = value,
-                3 => vertex.3 = value,
-                4 => vertex.4 = value,
-                5 => vertex.5 = value,
-                6 => vertex.6 = value,
-                _ => (),
+            if i < 7 {
+                vertex[i as usize] = value;
             }
         }
         vertices.push(vertex);
     }
 
-    // write vertices
     let mut out = File::create(output_path).unwrap();
-    out.write_all("# Converted from .rpo\n".as_bytes()).unwrap();
-    out.write_all("# This file is property of Auxbrain, Inc. and should be treated as such.\n\n".as_bytes()).unwrap();
-    for vertex in vertices.iter() {
-        out.write_all(format!("v {} {} {} {} {} {}\n", vertex.0, vertex.1, vertex.2, vertex.3, vertex.4, vertex.5).as_bytes()).unwrap();
+    out.write_all("# Converted from buffer\n".as_bytes()).unwrap();
+    out.write_all(
+        "# This file is property of Auxbrain, Inc. and should be treated as such.\n\n".as_bytes(),
+    )
+    .unwrap();
+
+    for vertex in &vertices {
+        out.write_all(
+            format!(
+                "v {} {} {} {} {} {}\n",
+                vertex[0], vertex[1], vertex[2], vertex[3], vertex[4], vertex[5]
+            )
+            .as_bytes(),
+        )
+        .unwrap();
     }
 
     // read faces
-    let mut faces: Vec<(u16, u16, u16)> = Vec::with_capacity(faces_count as usize);
+    let mut faces: Vec<[u16; 3]> = Vec::with_capacity(faces_count as usize);
     let mut buffer: [u8; 2] = [0; 2];
     for _ in 0..faces_count {
-        let mut face = (0, 0, 0);
+        let mut face = [0, 0, 0];
         for i in 0..3 {
-            file.read_exact(&mut buffer).unwrap();
-            match i {
-                0 => face.0 = u16::from_le_bytes(buffer),
-                1 => face.1 = u16::from_le_bytes(buffer),
-                2 => face.2 = u16::from_le_bytes(buffer),
-                _ => (),
-            }
+            cursor.read_exact(&mut buffer).unwrap();
+            face[i] = u16::from_le_bytes(buffer);
         }
         faces.push(face);
     }
 
     // write faces
     for face in faces.iter() {
-        out.write_all(format!("f {} {} {}\n", face.0 + 1, face.1 + 1, face.2 + 1).as_bytes()).unwrap();
+        out.write_all(format!("f {} {} {}\n", face[0] + 1, face[1] + 1, face[2] + 1).as_bytes())
+            .unwrap();
     }
 
-    //close file
+    // Close file
     out.flush().unwrap();
     out.sync_all().unwrap();
 
-    println!("{} -> {}", input_path.display(), output_path.display());
+    //get everything before last /
+    let output_path_without_extension = output_path.file_stem().unwrap().to_str().unwrap();
+
+    println!("{}.rpo(z) -> {}", output_path_without_extension, output_path.display());
+}
+
+fn browse_shells(search_term: &str, output_path: &Path) {
+    let config_response = get(CONFIG_URL).unwrap();
+    let config = config_response.text().unwrap();
+
+    let mut reader = csv::ReaderBuilder::new()
+        .delimiter(b'|')
+        .from_reader(config.as_bytes());
+
+    let mut shells = Vec::new();
+    let mut chickens = Vec::new();
+
+    for result in reader.records() {
+        let record = result.unwrap();
+        let asset_type = record.get(0).unwrap().to_string(); // Convert to owned String
+    
+        if record.into_iter().any(|field| field.contains(search_term)) {
+            match asset_type.as_str() {
+                "shell" => { shells.push(record); }
+                "chicken" => { chickens.push(record); }
+                _ => {}
+            }
+        }
+    }
+
+    if shells.is_empty() && chickens.is_empty() {
+        println!("No shells or chickens found for search term '{}'", search_term);
+        return;
+    }
+
+    let shell_len = shells.iter().map(|shell| shell.get(1).unwrap().len()).max().unwrap_or(0) + 1;
+    let shell_id_len = shells.iter().map(|shell| shell.get(2).unwrap().len()).max().unwrap_or(0);
+    let chicken_len = chickens.iter().map(|chicken| chicken.get(1).unwrap().len()).max().unwrap_or(0) + 1;
+    let chicken_id_len = chickens.iter().map(|chicken| chicken.get(2).unwrap().len()).max().unwrap_or(0);
+
+    if !shells.is_empty() {
+        println!("\n");
+        let header = format!("{:name_len$} | {:>9} | {:id_len$}", "Shell", "Size", "ID", name_len=shell_len, id_len=shell_id_len);
+        println!("{}", header);
+        println!("{}", "-".repeat(header.len()));
+
+        for shell in &shells {
+            let name = shell.get(1).unwrap();
+            let id = shell.get(2).unwrap();
+            let size = bytes_to_readable(shell.get(4).unwrap().parse().unwrap());
+
+            println!("{:name_len$} | {:>9} | {:id_len$}", name, size, id, name_len=shell_len, id_len=shell_id_len);
+        }
+    }
+
+    if !chickens.is_empty() {
+        println!("\n");
+        let header = format!("{:name_len$} | {:>9} | {:id_len$}", "Chicken", "Size", "ID", name_len=chicken_len, id_len=chicken_id_len);
+        println!("{}", header);
+        println!("{}", "-".repeat(header.len()));
+
+        for chicken in &chickens {
+            let name = chicken.get(1).unwrap();
+            let id = chicken.get(2).unwrap();
+            let size = bytes_to_readable(chicken.get(4).unwrap().parse().unwrap());
+
+            println!("{:name_len$} | {:>9} | {:id_len$}", name, size, id, name_len=chicken_len, id_len=chicken_id_len);
+        }
+    }
+
+    let total_shell_size: u64 = shells.clone().iter().map(|shell| shell.get(4).unwrap().parse::<u64>().unwrap()).sum();
+    let total_chicken_size: u64 = chickens.clone().iter().map(|chicken| chicken.get(4).unwrap().parse::<u64>().unwrap()).sum();
+
+    println!("\n{:<20} | {:>9}", "Summary", "Size");
+    println!("{}", "-".repeat(30));
+    println!("{:<20} | {:>9}", "Shells", bytes_to_readable(total_shell_size));
+    println!("{:<20} | {:>9}\n", "Chickens", bytes_to_readable(total_chicken_size));
+
+    println!("\nTotal Size: {}", bytes_to_readable(total_shell_size + total_chicken_size));
+
+    if output_path == Path::new(".") {
+        print!("Download all to your current folder? (y/n) ");
+    } else {
+        print!("Download all to '{}'? (y/n) ", output_path.display());
+    };
+    let _ = std::io::stdout().flush();
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+
+    if input.trim().to_lowercase() == "y" {
+        if !output_path.exists() {
+            fs::create_dir_all(output_path).expect("error: failed to create output directory");
+        }
+
+        for shell in shells {
+            let id = shell.get(2).unwrap();
+            let hash = shell.get(3).unwrap();
+            let url = format!("{}{}_{}.rpoz", DLC_URL, id, hash);
+
+            let response = get(&url).unwrap();
+            convert_buffer(&response.bytes().unwrap(), &output_path.join(format!("{}.obj", id)));
+        }
+    }
+
+}
+
+fn bytes_to_readable(bytes: u64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB", "PB", "EB"];
+    let mut bytes = bytes as f64;
+    let mut i = 0;
+    while bytes >= 1024.0 && i < units.len() - 1 {
+        bytes /= 1024.0;
+        i += 1;
+    }
+    format!("{:.2} {}", bytes, units[i])
 }

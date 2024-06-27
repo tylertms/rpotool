@@ -3,7 +3,7 @@ name: compile
 on: [push, pull_request]
 
 env:
-  VERSION: 1.0.2
+  VERSION: 1.0.4
   OUTPUT_NAME: rpotool
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       run: |
         cargo build --release
         mkdir output
-        mv ./target/release/${{ env.OUTPUT_NAME }}.exe output/
+        mv target/release/${{ env.OUTPUT_NAME }}.exe output/
         mv README.md output/
 
     - name: Compile and package for macOS and Linux
@@ -35,9 +35,9 @@ jobs:
       run: |
         cargo build --release
         mkdir output
-        chmod +x ${{ env.OUTPUT_NAME }}
-        mv ./target/release/${{ env.OUTPUT_NAME }} output/
+        mv target/release/${{ env.OUTPUT_NAME }} output/
         mv README.md output/
+        chmod +x output/${{ env.OUTPUT_NAME }}
 
     - name: Upload artifact Ubuntu
       if: matrix.os == 'ubuntu-latest'

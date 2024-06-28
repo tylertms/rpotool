@@ -37,6 +37,8 @@ Options:
 
 On Windows, you can simply drag a .rpo file onto the .exe to convert it.
 
+Read the [Blender](#blender) section for details about rendering with Cycles.
+
 ### Examples:
 
 Convert `coop.rpo` to `coop.glb`.
@@ -58,6 +60,10 @@ To browse, download, and convert shell files, use the `-s`/`--search` flag.
 ## Blender
 
 With the use of `.glb` files, Blender will automatically recognize the colors and properties of imported objects.
+
+If you are using the Cycles renderer and need backface culling to see internal geometry, such as on the Chicken Universe hab, set up the following material nodes on the `default` texture:
+
+![cycles_backface_culling](./demo/cycles_backface_culling.png)
 
 If the object has light-emitting features, you may want to individually tweak these values to your liking.
 

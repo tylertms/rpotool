@@ -6,7 +6,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
   - [Examples](#examples)
-- [Importing to Blender](#importing-to-blender)
+- [Blender](#blender)
 - [Compiling](#compiling)
 - [License](#license)
 
@@ -29,9 +29,9 @@ To obtain `.rpoz` shell assets, see the `search` command below.
 
 ## Usage
 ```
-Usage: ./rpotool <folder or file.rpo(z)> [options]
+Usage: ./rpotool <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]
 Options:
-  -s, --search <term>       Search for shells and download as .obj 
+  -s, --search <term>       Search for shells and download as .glb 
   -o, --output <path>       Output file or folder for the converted file(s)
 ```
 
@@ -39,14 +39,14 @@ On Windows, you can simply drag a .rpo file onto the .exe to convert it.
 
 ### Examples:
 
-Convert `coop.rpo` to `coop.obj`.
+Convert `coop.rpo` to `coop.glb`.
 ```
-./rpotool coop.obj
+./rpotool coop.rpo
 ```
 
-Convert the folder `rpos` to a new folder `objs`, using the `-o`/`--output` flag.
+Convert the folder `rpos` to a new folder `glbs`, using the `-o`/`--output` flag.
 ```
-./rpotool rpos/ -o objs/
+./rpotool rpos/ -o glbs/
 ```
 
 ![convert_demo](./demo/rpotool_convert_demo.gif)
@@ -55,36 +55,27 @@ To browse, download, and convert shell files, use the `-s`/`--search` flag.
 
 ![search_demo](./demo/rpotool_search_demo.gif)
 
-## Importing to Blender
+## Blender
 
-By default, Blender does not recognize the vertex colors/textures in the converted .obj files.
+With the use of .glb files, Blender will automatically recognize the colors of imported objects.
 
-After importing your .obj file into blender, complete the following:
+However, if the object has light-emitting features, you may want to tweak these values to your liking.
 
-1. Open the shading tab and select `+ New` to create a new material
+To do this, select the object and open the materials tab on the sidebar.
 
-![step_1](./demo/blender/step1.png)
+![blender_materials](./demo/blender_emissive_materials.png)
 
-2. For `mtl0`, select `Add > Input > Color Attribute`
-
-![step_2](./demo/blender/step2.png)
-
-3. Connect the `Color` node of `Color Attribute` to the `Base Color` node of the material
-
-![step_3](./demo/blender/step3.png)
-
-4. If the object has more than one material (`mtl1+`), these are light sources. To enable these, open the material in the sidebar of any tab, open `Surface > Emission` and increase the strength to your liking (default: 1).
+Then, select a material, open `Surface > Emission`, and adjust the `Strength`.
 
 ## Compiling
 
-You must have `gcc` installed and on your path.
+You must have `rustc`/`cargo` installed.
 
 ```shell
 $ git clone https://github.com/tylertms/rpotool.git
 $ cd rpotool
 $ make
 ```
-
 
 ## License
 

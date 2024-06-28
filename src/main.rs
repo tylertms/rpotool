@@ -15,13 +15,17 @@ const CONFIG_URL: &str =
     "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/";
 const DLC_URL: &str = "https://auxbrain.com/dlc/shells/";
 
+
+fn print_usage(exec: &str) {
+    eprintln!(
+        "Usage: {} <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]",
+        exec
+    );
+}
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!(
-            "Usage: {} <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]",
-            args[0]
-        );
+        print_usage(&args[0]);
         std::process::exit(1);
     }
 
@@ -38,6 +42,7 @@ fn main() {
                     i += 1;
                 } else {
                     eprintln!("error: missing output path");
+                    print_usage(&args[0]);
                     std::process::exit(1);
                 }
             }
@@ -46,6 +51,7 @@ fn main() {
                     search_term = Some(args[i + 1].clone());
                 } else {
                     eprintln!("error: missing search term");
+                    print_usage(&args[0]);
                     std::process::exit(1);
                 }
             }
@@ -54,6 +60,7 @@ fn main() {
                     input_path = Some(args[i].clone());
                 } else {
                     eprintln!("error: multiple input paths provided");
+                    print_usage(&args[0]);
                     std::process::exit(1);
                 }
             }
@@ -96,9 +103,7 @@ fn main() {
                             .with_extension("glb");
                         convert_file(&path, &output_file);
                     }
-                    _ => {
-                        eprintln!("info: ignoring non .rpo(z) {}", path.display());
-                    }
+                    _ => {}
                 }
             }
         }

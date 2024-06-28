@@ -1,31 +1,34 @@
 use std::env;
 use std::fs::{self, File};
-use std::io::{Read, Write, Cursor};
+use std::io::{Cursor, Read, Write};
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
 
-use reqwest::{self, blocking::get};
 use flate2::bufread::DeflateDecoder;
+use reqwest::{self, blocking::get};
 
 mod glb;
 
 const RPO1_MAGIC: u32 = 0x52504F31;
 const RPOZ_MAGIC: u16 = 0x789C;
 const CHUNK_INDICATOR: u32 = 0x1406;
-const CONFIG_URL: &str = "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/";
+const CONFIG_URL: &str =
+    "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/";
 const DLC_URL: &str = "https://auxbrain.com/dlc/shells/";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: {} <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]", args[0]);
+        eprintln!(
+            "Usage: {} <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]",
+            args[0]
+        );
         std::process::exit(1);
     }
 
     let mut input_path = None;
     let mut output_path = None;
     let mut search_term = None;
-    
+
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -39,7 +42,7 @@ fn main() {
                 }
             }
             "-s" | "--search" => {
-                if i + 1 < args.len() {                    
+                if i + 1 < args.len() {
                     search_term = Some(args[i + 1].clone());
                 } else {
                     eprintln!("error: missing search term");
@@ -90,7 +93,7 @@ fn main() {
                     Some("rpo") | Some("rpoz") => {
                         let output_file = Path::new(&output_path)
                             .join(path.file_name().expect("error: invalid file name"))
-                            .with_extension("obj");
+                            .with_extension("glb");
                         convert_file(&path, &output_file);
                     }
                     _ => {
@@ -106,13 +109,13 @@ fn main() {
                 .expect("error: invalid input path")
                 .to_string_lossy()
                 .into_owned();
-            format!("{}.obj", input_file_name)
+            format!("{}.glb", input_file_name)
         });
 
-        let output_path = if output_path.ends_with(".obj") {
+        let output_path = if output_path.ends_with(".glb") {
             output_path
         } else {
-            format!("{}.obj", output_path)
+            format!("{}.glb", output_path)
         };
 
         let output_file = Path::new(&output_path);
@@ -142,19 +145,9 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
         decoder.read_to_end(&mut buffer).unwrap();
         buffer
     } else {
-        eprintln!(
-            "error: provided buffer is not a valid .rpo(z) file"
-        );
+        eprintln!("error: provided buffer is not a valid .rpo(z) file");
         return;
     };
-
-    //write file content to new file
-    
-    let mut file = File::create("temp.rpo").unwrap();
-    file.write_all(&file_content).unwrap();
-    file.sync_all().unwrap();
-    
-
 
     let mut cursor = Cursor::new(file_content);
     cursor.set_position(4);
@@ -192,11 +185,9 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
             cursor.set_position(cursor.position() - 4);
         }
     }
-    println!("Tokens: {}", tokens);
+
     cursor.set_position(header_length as u64);
-    
-    let mut materials: HashMap<u32, [f32; 4]> = HashMap::new();
-    
+
     let mut vertices: Vec<[f32; 7]> = Vec::with_capacity(vertices_count as usize);
     for _ in 0..vertices_count {
         let mut vertex = [0.0; 7];
@@ -205,49 +196,14 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
             let value = f32::from_le_bytes(quad_buffer);
             if i <= 6 {
                 vertex[i as usize] = value;
-
-                if i == 6 && value > 0.0 {
-                    if materials.contains_key(&(calculate_hash(&vertex) as u32)) {
-                        continue;   
-                    }
-                    println!("hash: {}", calculate_hash(&vertex) as u32);
-
-                    materials.insert(calculate_hash(&vertex) as u32, [0.0, 0.0, 0.0, 0.0]);
-                    let material_mut = materials.get_mut(&(calculate_hash(&vertex) as u32)).unwrap();
-                    for j in 0..4 {
-                        cursor.read_exact(&mut quad_buffer).unwrap();
-                        material_mut[j] = vertex[j + 3]
-                    }
-                    cursor.set_position(cursor.position() - 16);
-                }
             }
         }
         vertices.push(vertex);
     }
 
-    let materials_count = &materials.keys().len();
-
-    let mut out = File::create(output_path).unwrap();
-    out.write_all("# Converted from buffer\n".as_bytes()).unwrap();
-    out.write_all(
-        "# This file is property of Auxbrain, Inc. and should be treated as such.\n\n".as_bytes(),
-    )
-    .unwrap();
-
-    for vertex in &vertices {
-        out.write_all(
-            format!(
-                "v {} {} {} {} {} {}\n",
-                vertex[0], vertex[1], vertex[2], vertex[3], vertex[4], vertex[5]
-            )
-            .as_bytes(),
-        )
-        .unwrap();
-    }
-
     let mut faces: Vec<[u32; 3]> = Vec::with_capacity(faces_count as usize);
     let mut buffer: [u8; 2] = [0; 2];
-    for n in 0..faces_count {
+    for _ in 0..faces_count {
         let mut face = [0, 0, 0];
         for i in 0..3 {
             cursor.read_exact(&mut buffer).unwrap();
@@ -257,8 +213,6 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
         faces.push(face);
     }
 
-    let all_faces = vec![&faces];
-
     let mut ordered_vertices: Vec<[f32; 7]> = Vec::new();
     for face in faces.iter() {
         for vertex in face.iter() {
@@ -266,20 +220,19 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
         }
     }
 
-    glb::export(ordered_vertices);
-    
-
-    for face in faces.iter() {
-        out.write_all(format!("f {} {} {}\n", face[0] + 1, face[1] + 1, face[2] + 1).as_bytes())
-            .unwrap();
-    }
-
-    out.flush().unwrap();
-    out.sync_all().unwrap();
+    let glb = glb::create(
+        ordered_vertices,
+        output_path.to_str().unwrap().split(".").nth(0).unwrap(),
+    );
+    let writer = fs::File::create(output_path).expect("I/O error");
+    glb.to_writer(writer).expect("glTF binary output error");
 
     let output_path_without_extension = output_path.file_stem().unwrap().to_str().unwrap();
-
-    println!("{}.rpo(z) -> {}", output_path_without_extension, output_path.display());
+    println!(
+        "{}.rpo(z) -> {}",
+        output_path_without_extension,
+        output_path.display()
+    );
 
     return;
 }
@@ -298,29 +251,61 @@ fn browse_shells(search_term: &str, output_path: &Path) {
     for result in reader.records() {
         let record = result.unwrap();
         let asset_type = record.get(0).unwrap().to_string();
-    
+
         if record.into_iter().any(|field| field.contains(search_term)) {
             match asset_type.as_str() {
-                "shell" => { shells.push(record); }
-                "chicken" => { chickens.push(record); }
+                "shell" => {
+                    shells.push(record);
+                }
+                "chicken" => {
+                    chickens.push(record);
+                }
                 _ => {}
             }
         }
     }
 
     if shells.is_empty() && chickens.is_empty() {
-        println!("No shells or chickens found for search term '{}'", search_term);
+        println!(
+            "No shells or chickens found for search term '{}'",
+            search_term
+        );
         return;
     }
 
-    let shell_len = shells.iter().map(|shell| shell.get(1).unwrap().len()).max().unwrap_or(0) + 1;
-    let shell_id_len = shells.iter().map(|shell| shell.get(2).unwrap().len()).max().unwrap_or(0);
-    let chicken_len = chickens.iter().map(|chicken| chicken.get(1).unwrap().len()).max().unwrap_or(0) + 1;
-    let chicken_id_len = chickens.iter().map(|chicken| chicken.get(2).unwrap().len()).max().unwrap_or(0);
+    let shell_len = shells
+        .iter()
+        .map(|shell| shell.get(1).unwrap().len())
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let shell_id_len = shells
+        .iter()
+        .map(|shell| shell.get(2).unwrap().len())
+        .max()
+        .unwrap_or(0);
+    let chicken_len = chickens
+        .iter()
+        .map(|chicken| chicken.get(1).unwrap().len())
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let chicken_id_len = chickens
+        .iter()
+        .map(|chicken| chicken.get(2).unwrap().len())
+        .max()
+        .unwrap_or(0);
 
     if !shells.is_empty() {
         println!();
-        let header = format!("{:name_len$} | {:>9} | {:id_len$}", "Shell", "Size", "ID", name_len=shell_len, id_len=shell_id_len);
+        let header = format!(
+            "{:name_len$} | {:>9} | {:id_len$}",
+            "Shell",
+            "Size",
+            "ID",
+            name_len = shell_len,
+            id_len = shell_id_len
+        );
         println!("{}", header);
         println!("{}", "-".repeat(header.len()));
 
@@ -329,13 +314,27 @@ fn browse_shells(search_term: &str, output_path: &Path) {
             let id = shell.get(2).unwrap();
             let size = bytes_to_readable(shell.get(4).unwrap().parse().unwrap());
 
-            println!("{:name_len$} | {:>9} | {:id_len$}", name, size, id, name_len=shell_len, id_len=shell_id_len);
+            println!(
+                "{:name_len$} | {:>9} | {:id_len$}",
+                name,
+                size,
+                id,
+                name_len = shell_len,
+                id_len = shell_id_len
+            );
         }
     }
 
     if !chickens.is_empty() {
         println!();
-        let header = format!("{:name_len$} | {:>9} | {:id_len$}", "Chicken", "Size", "ID", name_len=chicken_len, id_len=chicken_id_len);
+        let header = format!(
+            "{:name_len$} | {:>9} | {:id_len$}",
+            "Chicken",
+            "Size",
+            "ID",
+            name_len = chicken_len,
+            id_len = chicken_id_len
+        );
         println!("{}", header);
         println!("{}", "-".repeat(header.len()));
 
@@ -344,19 +343,45 @@ fn browse_shells(search_term: &str, output_path: &Path) {
             let id = chicken.get(2).unwrap();
             let size = bytes_to_readable(chicken.get(4).unwrap().parse().unwrap());
 
-            println!("{:name_len$} | {:>9} | {:id_len$}", name, size, id, name_len=chicken_len, id_len=chicken_id_len);
+            println!(
+                "{:name_len$} | {:>9} | {:id_len$}",
+                name,
+                size,
+                id,
+                name_len = chicken_len,
+                id_len = chicken_id_len
+            );
         }
     }
 
-    let total_shell_size: u64 = shells.clone().iter().map(|shell| shell.get(4).unwrap().parse::<u64>().unwrap()).sum();
-    let total_chicken_size: u64 = chickens.clone().iter().map(|chicken| chicken.get(4).unwrap().parse::<u64>().unwrap()).sum();
+    let total_shell_size: u64 = shells
+        .clone()
+        .iter()
+        .map(|shell| shell.get(4).unwrap().parse::<u64>().unwrap())
+        .sum();
+    let total_chicken_size: u64 = chickens
+        .clone()
+        .iter()
+        .map(|chicken| chicken.get(4).unwrap().parse::<u64>().unwrap())
+        .sum();
 
     println!("\n{:<20} | {:>9}", "Summary", "Size");
     println!("{}", "-".repeat(32));
-    println!("{:<20} | {:>9}", "Shells", bytes_to_readable(total_shell_size));
-    println!("{:<20} | {:>9}\n", "Chickens", bytes_to_readable(total_chicken_size));
+    println!(
+        "{:<20} | {:>9}",
+        "Shells",
+        bytes_to_readable(total_shell_size)
+    );
+    println!(
+        "{:<20} | {:>9}\n",
+        "Chickens",
+        bytes_to_readable(total_chicken_size)
+    );
 
-    println!("Total Size: {}", bytes_to_readable(total_shell_size + total_chicken_size));
+    println!(
+        "Total Size: {}",
+        bytes_to_readable(total_shell_size + total_chicken_size)
+    );
 
     if output_path == Path::new(".") {
         print!("Download all to your current folder? (y/n) ");
@@ -383,10 +408,12 @@ fn browse_shells(search_term: &str, output_path: &Path) {
             let url = format!("{}{}_{}.rpoz", DLC_URL, id, hash);
 
             let response = get(&url).unwrap();
-            convert_buffer(&response.bytes().unwrap(), &output_path.join(format!("{}.obj", id)));
+            convert_buffer(
+                &response.bytes().unwrap(),
+                &output_path.join(format!("{}.glb", id)),
+            );
         }
     }
-
 }
 
 fn bytes_to_readable(bytes: u64) -> String {
@@ -398,8 +425,4 @@ fn bytes_to_readable(bytes: u64) -> String {
         i += 1;
     }
     format!("{:.2} {}", bytes, units[i])
-}
-
-fn calculate_hash(values: &[f32; 7]) -> u32 {
-    (255.0 * 1000.0 * (values[3] + values[4] + values[5]) * values[6]) as u32
 }

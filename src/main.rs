@@ -1,9 +1,13 @@
-use flate2::bufread::DeflateDecoder;
 use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write, Cursor};
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+
 use reqwest::{self, blocking::get};
+use flate2::bufread::DeflateDecoder;
+
+mod glb;
 
 const RPO1_MAGIC: u32 = 0x52504F31;
 const RPOZ_MAGIC: u16 = 0x789C;
@@ -12,7 +16,6 @@ const CONFIG_URL: &str = "https://gist.githubusercontent.com/tylertms/7592bcbdd1
 const DLC_URL: &str = "https://auxbrain.com/dlc/shells/";
 
 fn main() {
-    // Read arguments
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         eprintln!("Usage: {} <input.rpo(z)?> [-s|--search <term>] [-o|--output <output>]", args[0]);
@@ -145,6 +148,14 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
         return;
     };
 
+    //write file content to new file
+    
+    let mut file = File::create("temp.rpo").unwrap();
+    file.write_all(&file_content).unwrap();
+    file.sync_all().unwrap();
+    
+
+
     let mut cursor = Cursor::new(file_content);
     cursor.set_position(4);
     let mut quad_buffer = [0; 4];
@@ -159,7 +170,6 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
     let mut tokens: u8 = 0;
     let mut value: u32;
 
-    // find header length and token count
     loop {
         cursor.read_exact(&mut quad_buffer).unwrap();
         value = u32::from_le_bytes(quad_buffer);
@@ -182,22 +192,40 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
             cursor.set_position(cursor.position() - 4);
         }
     }
-
+    println!("Tokens: {}", tokens);
     cursor.set_position(header_length as u64);
-
-    // read vertices
+    
+    let mut materials: HashMap<u32, [f32; 4]> = HashMap::new();
+    
     let mut vertices: Vec<[f32; 7]> = Vec::with_capacity(vertices_count as usize);
     for _ in 0..vertices_count {
         let mut vertex = [0.0; 7];
         for i in 0..tokens {
             cursor.read_exact(&mut quad_buffer).unwrap();
             let value = f32::from_le_bytes(quad_buffer);
-            if i < 7 {
+            if i <= 6 {
                 vertex[i as usize] = value;
+
+                if i == 6 && value > 0.0 {
+                    if materials.contains_key(&(calculate_hash(&vertex) as u32)) {
+                        continue;   
+                    }
+                    println!("hash: {}", calculate_hash(&vertex) as u32);
+
+                    materials.insert(calculate_hash(&vertex) as u32, [0.0, 0.0, 0.0, 0.0]);
+                    let material_mut = materials.get_mut(&(calculate_hash(&vertex) as u32)).unwrap();
+                    for j in 0..4 {
+                        cursor.read_exact(&mut quad_buffer).unwrap();
+                        material_mut[j] = vertex[j + 3]
+                    }
+                    cursor.set_position(cursor.position() - 16);
+                }
             }
         }
         vertices.push(vertex);
     }
+
+    let materials_count = &materials.keys().len();
 
     let mut out = File::create(output_path).unwrap();
     out.write_all("# Converted from buffer\n".as_bytes()).unwrap();
@@ -217,32 +245,43 @@ fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
         .unwrap();
     }
 
-    // read faces
-    let mut faces: Vec<[u16; 3]> = Vec::with_capacity(faces_count as usize);
+    let mut faces: Vec<[u32; 3]> = Vec::with_capacity(faces_count as usize);
     let mut buffer: [u8; 2] = [0; 2];
-    for _ in 0..faces_count {
+    for n in 0..faces_count {
         let mut face = [0, 0, 0];
         for i in 0..3 {
             cursor.read_exact(&mut buffer).unwrap();
-            face[i] = u16::from_le_bytes(buffer);
+            face[i] = u16::from_le_bytes(buffer) as u32;
         }
+
         faces.push(face);
     }
 
-    // write faces
+    let all_faces = vec![&faces];
+
+    let mut ordered_vertices: Vec<[f32; 7]> = Vec::new();
+    for face in faces.iter() {
+        for vertex in face.iter() {
+            ordered_vertices.push(vertices[(*vertex) as usize]);
+        }
+    }
+
+    glb::export(ordered_vertices);
+    
+
     for face in faces.iter() {
         out.write_all(format!("f {} {} {}\n", face[0] + 1, face[1] + 1, face[2] + 1).as_bytes())
             .unwrap();
     }
 
-    // Close file
     out.flush().unwrap();
     out.sync_all().unwrap();
 
-    //get everything before last /
     let output_path_without_extension = output_path.file_stem().unwrap().to_str().unwrap();
 
     println!("{}.rpo(z) -> {}", output_path_without_extension, output_path.display());
+
+    return;
 }
 
 fn browse_shells(search_term: &str, output_path: &Path) {
@@ -258,7 +297,7 @@ fn browse_shells(search_term: &str, output_path: &Path) {
 
     for result in reader.records() {
         let record = result.unwrap();
-        let asset_type = record.get(0).unwrap().to_string(); // Convert to owned String
+        let asset_type = record.get(0).unwrap().to_string();
     
         if record.into_iter().any(|field| field.contains(search_term)) {
             match asset_type.as_str() {
@@ -359,4 +398,8 @@ fn bytes_to_readable(bytes: u64) -> String {
         i += 1;
     }
     format!("{:.2} {}", bytes, units[i])
+}
+
+fn calculate_hash(values: &[f32; 7]) -> u32 {
+    (255.0 * 1000.0 * (values[3] + values[4] + values[5]) * values[6]) as u32
 }

@@ -57,7 +57,7 @@ To browse, download, and convert shell files, use the `-s`/`--search` flag.
 
 ## Blender
 
-With the use of .glb files, Blender will automatically recognize the colors of imported objects.
+With the use of `.glb` files, Blender will automatically recognize the colors of imported objects.
 
 However, if the object has light-emitting features, you may want to tweak these values to your liking.
 

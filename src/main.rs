@@ -374,12 +374,12 @@ fn browse_shells(search_term: &str, output_path: &Path) {
     println!("{}", "-".repeat(32));
     println!(
         "{:<20} | {:>9}",
-        "Shells",
+        format!("{} Shells", shells.len()),
         bytes_to_readable(total_shell_size)
     );
     println!(
         "{:<20} | {:>9}\n",
-        "Chickens",
+        format!("{} Chickens", chickens.len()),
         bytes_to_readable(total_chicken_size)
     );
 

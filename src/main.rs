@@ -1,20 +1,13 @@
+use reqwest::{self, blocking::get};
 use std::env;
 use std::fs::{self, File};
-use std::io::{Cursor, Read, Write};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-
-use flate2::bufread::DeflateDecoder;
-use reqwest::{self, blocking::get};
 
 mod glb;
 
-const RPO1_MAGIC: u32 = 0x52504F31;
-const RPOZ_MAGIC: u16 = 0x789C;
-const CHUNK_INDICATOR: u32 = 0x1406;
-const CONFIG_URL: &str =
-    "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/";
+const CONFIG_URL: &str = "https://gist.githubusercontent.com/tylertms/7592bcbdd1b6891bdf9b2d1a4216b55b/raw/";
 const DLC_URL: &str = "https://auxbrain.com/dlc/shells/";
-
 
 fn print_usage(exec: &str) {
     eprintln!(
@@ -101,6 +94,7 @@ fn main() {
                         let output_file = Path::new(&output_path)
                             .join(path.file_name().expect("error: invalid file name"))
                             .with_extension("glb");
+
                         convert_file(&path, &output_file);
                     }
                     _ => {}
@@ -135,111 +129,16 @@ fn convert_file(input_path: &Path, output_path: &Path) {
         .read_to_end(&mut file_content)
         .unwrap();
 
-    convert_buffer(&file_content, output_path);
-}
-
-fn convert_buffer(input_buffer: &[u8], output_path: &Path) {
-    let file_content = input_buffer;
-
-    let file_content = if file_content.starts_with(&RPO1_MAGIC.to_be_bytes()) {
-        file_content.to_vec()
-    } else if file_content.starts_with(&RPOZ_MAGIC.to_be_bytes()) {
-        let compressed_data = &file_content[2..];
-        let mut decoder = DeflateDecoder::new(compressed_data);
-        let mut buffer = Vec::new();
-        decoder.read_to_end(&mut buffer).unwrap();
-        buffer
-    } else {
-        eprintln!("error: provided buffer is not a valid .rpo(z) file");
-        return;
-    };
-
-    let mut cursor = Cursor::new(file_content);
-    cursor.set_position(4);
-    let mut quad_buffer = [0; 4];
-
-    cursor.read_exact(&mut quad_buffer).unwrap();
-    let vertices_count = u32::from_le_bytes(quad_buffer);
-
-    cursor.read_exact(&mut quad_buffer).unwrap();
-    let faces_count = u32::from_le_bytes(quad_buffer) / 6;
-
-    let header_length: u32;
-    let mut tokens: u8 = 0;
-    let mut value: u32;
-
-    loop {
-        cursor.read_exact(&mut quad_buffer).unwrap();
-        value = u32::from_le_bytes(quad_buffer);
-
-        if value == CHUNK_INDICATOR {
-            cursor.set_position(cursor.position() - 8);
-            cursor.read_exact(&mut quad_buffer).unwrap();
-            cursor.set_position(cursor.position() + 4);
-            tokens += u32::from_le_bytes(quad_buffer) as u8;
-            continue;
-        }
-
-        if value == 0 {
-            cursor.read_exact(&mut quad_buffer).unwrap();
-            value = u32::from_le_bytes(quad_buffer);
-            if value > 4 {
-                header_length = cursor.position() as u32;
-                break;
-            }
-            cursor.set_position(cursor.position() - 4);
-        }
-    }
-
-    cursor.set_position(header_length as u64);
-
-    let mut vertices: Vec<[f32; 7]> = Vec::with_capacity(vertices_count as usize);
-    for _ in 0..vertices_count {
-        let mut vertex = [0.0; 7];
-        for i in 0..tokens {
-            cursor.read_exact(&mut quad_buffer).unwrap();
-            let value = f32::from_le_bytes(quad_buffer);
-            if i <= 6 {
-                vertex[i as usize] = value;
-            }
-        }
-        vertices.push(vertex);
-    }
-
-    let mut faces: Vec<[u32; 3]> = Vec::with_capacity(faces_count as usize);
-    let mut buffer: [u8; 2] = [0; 2];
-    for _ in 0..faces_count {
-        let mut face = [0, 0, 0];
-        for i in 0..3 {
-            cursor.read_exact(&mut buffer).unwrap();
-            face[i] = u16::from_le_bytes(buffer) as u32;
-        }
-
-        faces.push(face);
-    }
-
-    let mut ordered_vertices: Vec<[f32; 7]> = Vec::new();
-    for face in faces.iter() {
-        for vertex in face.iter() {
-            ordered_vertices.push(vertices[(*vertex) as usize]);
-        }
-    }
-
-    let glb = glb::create(
-        ordered_vertices,
-        output_path.to_str().unwrap().split(".").nth(0).unwrap(),
+        //get output path everything after last \ or / and before extension
+    let glb = glb::convert_buffer(
+        file_content,
+        output_path.file_name().unwrap().to_str().unwrap().split('.').next().unwrap(),
     );
-    let writer = fs::File::create(output_path).expect("I/O error");
-    glb.to_writer(writer).expect("glTF binary output error");
+    let mut output_file = File::create(output_path).expect("error: failed to create output file");
+    glb.to_writer(&mut output_file)
+        .expect("error: failed to write glb to file");
 
-    let output_path_without_extension = output_path.file_stem().unwrap().to_str().unwrap();
-    println!(
-        "{}.rpo(z) -> {}",
-        output_path_without_extension,
-        output_path.display()
-    );
-
-    return;
+    println!("{} -> {}", input_path.display(), output_path.display());
 }
 
 fn browse_shells(search_term: &str, output_path: &Path) {
@@ -413,9 +312,21 @@ fn browse_shells(search_term: &str, output_path: &Path) {
             let url = format!("{}{}_{}.rpoz", DLC_URL, id, hash);
 
             let response = get(&url).unwrap();
-            convert_buffer(
-                &response.bytes().unwrap(),
-                &output_path.join(format!("{}.glb", id)),
+            let glb = glb::convert_buffer(
+                response.bytes().unwrap().to_vec(),
+                id,
+            );
+
+            let output_file_path = output_path.join(format!("{}.glb", id));
+            let mut output_file =
+                File::create(&output_file_path).expect("error: failed to create output file");
+            glb.to_writer(&mut output_file)
+                .expect("error: failed to write glb to file");
+
+            println!(
+                "{} -> {}",
+                url.split("/").last().unwrap(),
+                &output_file_path.display()
             );
         }
     }

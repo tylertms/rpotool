@@ -3,7 +3,7 @@ name: compile
 on: [push, pull_request]
 
 env:
-  VERSION: 2.0.0
+  VERSION: 2.1.0
   OUTPUT_NAME: rpotool
 
 jobs:
@@ -28,6 +28,7 @@ jobs:
         cargo build --release
         mkdir output
         mv target/release/${{ env.OUTPUT_NAME }}.exe output/
+        mv blender/*.py output/
         mv README.md output/
 
     - name: Compile and package for macOS and Linux
@@ -37,6 +38,7 @@ jobs:
         mkdir output
         mv target/release/${{ env.OUTPUT_NAME }} output/
         mv README.md output/
+        mv blender/*.py output/
         chmod +x output/${{ env.OUTPUT_NAME }}
 
     - name: Upload artifact Ubuntu

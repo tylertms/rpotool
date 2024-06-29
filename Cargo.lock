@@ -832,6 +832,7 @@ dependencies = [
  "gltf",
  "gltf-json",
  "reqwest",
+ "serde_json",
 ]
 
 [[package]]

@@ -37,7 +37,7 @@ Options:
 
 On Windows, you can simply drag a .rpo file onto the .exe to convert it.
 
-Read the [Blender](#blender) section for details about rendering with Cycles.
+Read the [Blender](#blender) section for instructions on importing to Blender.
 
 ### Examples:
 
@@ -59,19 +59,17 @@ To browse, download, and convert shell files, use the `-s`/`--search` flag.
 
 ## Blender
 
-With the use of `.glb` files, Blender will automatically recognize the colors and properties of imported objects.
+While the default Blender glTF 2.0 importer will work for the converted `.glb` files, it does not support the vertex emission that Egg, Inc. uses.
 
-If you are using the Cycles renderer and need backface culling to see internal geometry, such as on the Chicken Universe hab, set up the following material nodes on the `default` texture:
+To import with emission and Cycles backface culling, use the `egg_inc_gltf_import.py` addon bundled with each release.
 
-![cycles_backface_culling](./demo/cycles_backface_culling.png)
+1. In Blender, open `Edit > Preferences`, select `Add-ons`, and click `Install...`. 
 
-If the object has light-emitting features, you may want to individually tweak these values to your liking.
+2. Navigate to the `egg_inc_gltf_import.py` file and click the checkbox to enable the addon.
 
-To do this, select the object and open the materials tab on the sidebar.
+3. When importing a `.glb` file, select `Egg, Inc. glTF (.glb)` option from the dropdown menu, *not* the default `glTF 2.0` importer.
 
-![blender_materials](./demo/blender_emissive_materials.png)
-
-Then, select a material, open `Surface > Emission`, and adjust the `Strength`.
+To adjust the emission strength, open the `Shading` tab, select the `Multiply` node, and adjust the value.
 
 ## Compiling
 

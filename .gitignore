@@ -1,6 +1,8 @@
 /.vscode
 /config/__pycache__
 .DS_Store
+shells.zip
+/rpos
 
 # Added by cargo
 

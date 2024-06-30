@@ -18,7 +18,7 @@ import os
 import bpy
 bl_info = {
     "name": "Egg, Inc. glTF Format",
-    "blender": (2, 80, 0),
+    "blender": (4,1,0),
     "category": "Import-Export",
 }
 

@@ -309,7 +309,14 @@ fn browse_shells(search_term: &str, output_path: &Path) {
         for asset in assets {
             let id = asset.get(2).unwrap();
             let hash = asset.get(3).unwrap();
-            let url = format!("{}{}_{}.rpoz", DLC_URL, id, hash);
+            let mut url = format!("{}{}", DLC_URL, id);
+            if !hash.is_empty() {
+                url.push('_');
+                url.push_str(hash);
+            }
+            url.push_str(".rpoz");
+
+            print!("Downloading {}... ", url);
 
             let response = get(&url).unwrap();
             let glb = glb::convert_buffer(

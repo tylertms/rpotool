@@ -47,18 +47,20 @@ def parse_config():
             elif shell.name is not None:
                 set_name = shell.name
 
-            type = ei_pb.ShellSpec.AssetType.Name(shell.primary_piece.asset_type)
-            url_key = shell.primary_piece.dlc.url.split("_")[-1].split(".")[0]
-            original_size = shell.primary_piece.dlc.original_size
+            pieces = [shell.primary_piece] + [piece for piece in shell.pieces]
 
-            if type not in asset_types:
-                asset_types.append(type)
-            
-            if len(url_key) != 32:
-                print(f"Invalid URL Key: {url_key}")
-                continue
+            for piece in pieces:
+                type = ei_pb.ShellSpec.AssetType.Name(piece.asset_type)
+                url_key = piece.dlc.url.split("_")[-1].split(".")[0]
+                original_size = piece.dlc.original_size
 
-            f.write(f"shell|{set_name} - {type}|{shell.identifier}|{url_key}|{original_size}\n")
+                if type not in asset_types:
+                    asset_types.append(type)
+                
+                if len(url_key) != 32:
+                    url_key = ""
+
+                f.write(f"shell|{set_name} - {type}|{piece.dlc.name}|{url_key}|{original_size}\n")
 
         for shell_object in dlc_catalog.shell_objects:
 

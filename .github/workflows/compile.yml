@@ -3,7 +3,7 @@ name: compile
 on: [push, pull_request]
 
 env:
-  VERSION: 2.1.0
+  VERSION: 2.2.0
   OUTPUT_NAME: rpotool
 
 jobs:

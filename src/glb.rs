@@ -132,7 +132,15 @@ pub fn convert_buffer(rpo_data: Vec<u8>, name: &str) -> gltf::binary::Glb<'stati
         name: Some("default".to_string()),
         extensions: Default::default(),
         extras: Default::default(),
-        pbr_metallic_roughness: Default::default(),
+        pbr_metallic_roughness: json::material::PbrMetallicRoughness {
+            base_color_factor: json::material::PbrBaseColorFactor([1.0, 1.0, 1.0, 1.0]),
+            metallic_factor: json::material::StrengthFactor(0.5),
+            roughness_factor: json::material::StrengthFactor(0.5),
+            base_color_texture: None,
+            metallic_roughness_texture: None,
+            extensions: Default::default(),
+            extras: Default::default(),
+        },
         normal_texture: None,
         occlusion_texture: None,
         emissive_texture: None,
@@ -140,7 +148,7 @@ pub fn convert_buffer(rpo_data: Vec<u8>, name: &str) -> gltf::binary::Glb<'stati
         alpha_mode: Valid(json::material::AlphaMode::Opaque),
         alpha_cutoff: None,
         double_sided: false,
-    });
+    });    
 
     let primitive = json::mesh::Primitive {
         attributes: {

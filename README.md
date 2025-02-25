@@ -51,11 +51,10 @@ Convert the folder `rpos` to a new folder `glbs`, using the `-o`/`--output` flag
 ./rpotool rpos/ -o glbs/
 ```
 
-![convert_demo](./demo/rpotool_convert_demo.gif)
-
 To browse, download, and convert shell files, use the `-s`/`--search` flag.
-
-![search_demo](./demo/rpotool_search_demo.gif)
+```
+./rpotool -s mushroom
+```
 
 ## Blender
 
